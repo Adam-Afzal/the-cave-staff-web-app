@@ -1,0 +1,117 @@
+@import "tailwindcss";
+
+@theme {
+  --color-cave-gold: #f5c542;
+  --color-cave-gold-dark: #e8b923;
+  --color-cave-bg-primary: #0f1114;
+  --color-cave-bg-secondary: #12151a;
+  --color-cave-bg-card: #161a1f;
+  --color-cave-bg-elevated: #1a1f26;
+  --color-cave-border: #252a33;
+  --color-cave-text-primary: #f8fafc;
+  --color-cave-text-secondary: #8b9bb4;
+  --color-cave-text-muted: #6b7a94;
+  --color-cave-status-success: #22c55e;
+  --color-cave-status-warning: #f97316;
+  --color-cave-status-error: #ef4444;
+  --color-cave-status-info: #3b82f6;
+  --color-cave-connection-b2b: #8b5cf6;
+  --color-cave-connection-investment: #14b8a6;
+  --color-cave-connection-strategic: #3b82f6;
+  --color-cave-connection-legal: #ec4899;
+  --color-cave-connection-financial: #f97316;
+  --font-sans: 'Inter', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+}
+
+@layer base {
+  body {
+    @apply bg-cave-bg-primary text-cave-text-primary font-sans antialiased;
+  }
+}
+
+@layer components {
+  .card {
+    @apply bg-cave-bg-card border border-cave-border rounded-lg;
+  }
+
+  .btn-primary {
+    @apply px-4 py-2 rounded-lg font-medium transition-all duration-200 inline-flex items-center justify-center gap-2 bg-cave-gold text-cave-bg-primary hover:bg-cave-gold-dark;
+  }
+
+  .btn-secondary {
+    @apply px-4 py-2 rounded-lg font-medium transition-all duration-200 inline-flex items-center justify-center gap-2 bg-cave-bg-elevated text-cave-text-primary border border-cave-border hover:bg-cave-bg-card;
+  }
+
+  .btn-ghost {
+    @apply px-4 py-2 rounded-lg font-medium transition-all duration-200 inline-flex items-center justify-center gap-2 text-cave-text-secondary hover:text-cave-text-primary hover:bg-cave-bg-elevated;
+  }
+
+  .input {
+    @apply w-full px-3 py-2 bg-cave-bg-secondary border border-cave-border rounded-lg text-cave-text-primary transition-all duration-200 placeholder:text-cave-text-muted focus:outline-none focus:ring-2 focus:ring-cave-gold/50 focus:border-cave-gold;
+  }
+
+  .input-label {
+    @apply block text-sm font-medium text-cave-text-secondary mb-1.5;
+  }
+
+  .badge {
+    @apply inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium;
+  }
+
+  .badge-gold {
+    @apply inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-cave-gold/20 text-cave-gold;
+  }
+
+  .badge-success {
+    @apply inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-cave-status-success/20 text-cave-status-success;
+  }
+
+  .badge-warning {
+    @apply inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-cave-status-warning/20 text-cave-status-warning;
+  }
+
+  .badge-error {
+    @apply inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-cave-status-error/20 text-cave-status-error;
+  }
+
+  .badge-info {
+    @apply inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-cave-status-info/20 text-cave-status-info;
+  }
+
+  .badge-b2b {
+    @apply inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-cave-connection-b2b/20 text-cave-connection-b2b;
+  }
+
+  .badge-investment {
+    @apply inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-cave-connection-investment/20 text-cave-connection-investment;
+  }
+
+  .badge-strategic {
+    @apply inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-cave-connection-strategic/20 text-cave-connection-strategic;
+  }
+
+  .badge-legal {
+    @apply inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-cave-connection-legal/20 text-cave-connection-legal;
+  }
+
+  .badge-financial {
+    @apply inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-cave-connection-financial/20 text-cave-connection-financial;
+  }
+
+  .table {
+    @apply w-full text-left;
+  }
+
+  .table th {
+    @apply px-4 py-3 text-xs font-medium text-cave-text-muted uppercase tracking-wider bg-cave-bg-secondary;
+  }
+
+  .table td {
+    @apply px-4 py-3 text-sm text-cave-text-primary border-t border-cave-border;
+  }
+
+  .table tr:hover td {
+    @apply bg-cave-bg-elevated/50;
+  }
+}
