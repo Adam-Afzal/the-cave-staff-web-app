@@ -7,12 +7,10 @@ import {
   CheckCircle, 
   Calendar, 
   X, 
-  Clock,
   FileText,
   Edit3,
   ExternalLink,
   Settings,
-  ChevronDown
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { cn, getInitials } from '../lib/utils'
