@@ -24,25 +24,26 @@ type EventStatus = 'DRAFT' | 'PUBLISHED' | 'CANCELLED' | 'COMPLETED'
 type LocationType = 'in_person' | 'online' | 'hybrid'
 
 interface Event {
-  id: string
-  title: string
-  description: string | null
-  location: string | null
-  location_type: LocationType | null
-  online_link: string | null
-  starts_at: string
-  ends_at: string | null
-  capacity: number | null
-  status: EventStatus
-  slug: string | null
-  is_private: boolean
-  waitlist_enabled: boolean
-  registration_deadline: string | null
-  max_guests_per_member: number
-  cover_image_url: string | null
-  created_at: string
-  attendee_count?: number
-}
+    id: string
+    title: string
+    description: string | null
+    summary: string | null  // Add this line
+    location: string | null
+    location_type: LocationType | null
+    online_link: string | null
+    starts_at: string
+    ends_at: string | null
+    capacity: number | null
+    status: EventStatus
+    slug: string | null
+    is_private: boolean
+    waitlist_enabled: boolean
+    registration_deadline: string | null
+    max_guests_per_member: number
+    cover_image_url: string | null
+    created_at: string
+    attendee_count?: number
+  }
 
 const statusColors: Record<EventStatus, string> = {
   DRAFT: 'bg-cave-text-muted/20 text-cave-text-muted',
