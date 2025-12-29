@@ -4,6 +4,11 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Layout } from './components/layout'
 import { LoginPage, DashboardPage, MembersPage, ConciergePage } from './pages'
 import { ClientCallsPage } from './pages/ClientCallsPage'
+import { EventsPage } from './pages/EventsPage'
+import { EventSignupPage } from './pages/EventSignUpPage'
+
+// Outside auth-protected routes
+<Route path="/events/:slug" element={<EventSignupPage />} />
 
 
 import { supabase } from './lib/supabase'
@@ -55,6 +60,7 @@ export default function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/events/:slug" element={<EventSignupPage />} />
           
           <Route element={
             <ProtectedRoute>
@@ -65,9 +71,10 @@ export default function App() {
             <Route path="/members" element={<MembersPage />} />
             <Route path="/concierge" element={<ConciergePage/>} />
             <Route path="/calls" element={<ClientCallsPage />} />
-            <Route path="/events" element={<div className="p-6 text-cave-text-primary">Events - Coming Soon</div>} />
+            <Route path="/events" element={<EventsPage />} />
             <Route path="/analytics" element={<div className="p-6 text-cave-text-primary">Analytics - Coming Soon</div>} />
             <Route path="/settings" element={<div className="p-6 text-cave-text-primary">Settings - Coming Soon</div>} />
+          
           </Route>
 
           <Route path="*" element={<Navigate to="/" replace />} />
