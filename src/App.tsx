@@ -6,6 +6,7 @@ import { LoginPage, DashboardPage, MembersPage, ConciergePage } from './pages'
 import { ClientCallsPage } from './pages/ClientCallsPage'
 import { EventsPage } from './pages/EventsPage'
 import { EventSignupPage } from './pages/EventSignUpPage'
+import { FeatureFlagsPage } from './pages/FeatureFlagsPage'
 
 // Outside auth-protected routes
 <Route path="/events/:slug" element={<EventSignupPage />} />
@@ -72,6 +73,7 @@ export default function App() {
             <Route path="/concierge" element={<ConciergePage/>} />
             <Route path="/calls" element={<ClientCallsPage />} />
             <Route path="/events" element={<EventsPage />} />
+            <Route path="/feature-flags" element={<FeatureFlagsPage />} />
             <Route path="/analytics" element={<div className="p-6 text-cave-text-primary">Analytics - Coming Soon</div>} />
             <Route path="/settings" element={<div className="p-6 text-cave-text-primary">Settings - Coming Soon</div>} />
           

@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { X, Search, UserPlus, Check, Clock, XCircle, UserCheck, MoreVertical, Trash2 } from 'lucide-react'
+import { X, Search, UserPlus, Check, Clock, XCircle, UserCheck, MoreVertical, Trash2, User } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { cn } from '../lib/utils'
 
@@ -15,7 +15,9 @@ interface Event {
 interface Attendee {
   id: string
   event_id: string
-  member_id: string
+  member_id: string | null
+  guest_name: string | null
+  guest_email: string | null
   rsvp_status: RsvpStatus
   attended: boolean | null
   added_by_staff_id: string | null
@@ -27,7 +29,7 @@ interface Attendee {
     last_name: string
     email: string
     profile_picture_url: string | null
-  }
+  } | null
 }
 
 interface Member {
@@ -171,12 +173,35 @@ export function EventAttendeesModal({ event, onClose }: EventAttendeesModalProps
     }
   })
 
+  // Helper to get attendee display info
+  const getAttendeeInfo = (attendee: Attendee) => {
+    if (attendee.member) {
+      return {
+        name: `${attendee.member.first_name} ${attendee.member.last_name}`,
+        email: attendee.member.email,
+        initials: `${attendee.member.first_name[0]}${attendee.member.last_name[0]}`,
+        profilePicture: attendee.member.profile_picture_url,
+        isGuest: false
+      }
+    }
+    // Guest attendee
+    const nameParts = (attendee.guest_name || 'Guest').split(' ')
+    return {
+      name: attendee.guest_name || 'Guest',
+      email: attendee.guest_email || '',
+      initials: nameParts.length >= 2 ? `${nameParts[0][0]}${nameParts[1][0]}` : nameParts[0][0] || 'G',
+      profilePicture: null,
+      isGuest: true
+    }
+  }
+
   const filteredAttendees = attendees?.filter(a => {
-    const fullName = `${a.member.first_name} ${a.member.last_name}`.toLowerCase()
-    return fullName.includes(searchQuery.toLowerCase()) || a.member.email.toLowerCase().includes(searchQuery.toLowerCase())
+    const info = getAttendeeInfo(a)
+    const searchLower = searchQuery.toLowerCase()
+    return info.name.toLowerCase().includes(searchLower) || info.email.toLowerCase().includes(searchLower)
   })
 
-  const existingMemberIds = new Set(attendees?.map(a => a.member_id) || [])
+  const existingMemberIds = new Set(attendees?.filter(a => a.member_id).map(a => a.member_id) || [])
   const availableMembers = searchResults?.filter(m => !existingMemberIds.has(m.id)) || []
 
   const confirmedCount = attendees?.filter(a => a.rsvp_status === 'CONFIRMED').length || 0
@@ -319,28 +344,41 @@ export function EventAttendeesModal({ event, onClose }: EventAttendeesModalProps
             <div className="divide-y divide-cave-border">
               {filteredAttendees.map(attendee => {
                 const { label, color, icon: StatusIcon } = statusConfig[attendee.rsvp_status]
+                const info = getAttendeeInfo(attendee)
                 
                 return (
                   <div key={attendee.id} className="px-6 py-4 flex items-center gap-4">
                     {/* Avatar */}
-                    {attendee.member.profile_picture_url ? (
+                    {info.profilePicture ? (
                       <img 
-                        src={attendee.member.profile_picture_url} 
+                        src={info.profilePicture} 
                         alt="" 
                         className="w-10 h-10 rounded-full object-cover"
                       />
                     ) : (
-                      <div className="w-10 h-10 rounded-full bg-cave-gold/20 flex items-center justify-center text-cave-gold font-medium">
-                        {attendee.member.first_name[0]}{attendee.member.last_name[0]}
+                      <div className={cn(
+                        "w-10 h-10 rounded-full flex items-center justify-center font-medium",
+                        info.isGuest 
+                          ? "bg-cave-text-muted/20 text-cave-text-muted"
+                          : "bg-cave-gold/20 text-cave-gold"
+                      )}>
+                        {info.isGuest ? <User className="w-5 h-5" /> : info.initials}
                       </div>
                     )}
 
                     {/* Info */}
                     <div className="flex-1 min-w-0">
-                      <div className="text-cave-text-primary font-medium">
-                        {attendee.member.first_name} {attendee.member.last_name}
+                      <div className="flex items-center gap-2">
+                        <span className="text-cave-text-primary font-medium">
+                          {info.name}
+                        </span>
+                        {info.isGuest && (
+                          <span className="px-1.5 py-0.5 rounded text-xs bg-cave-text-muted/20 text-cave-text-muted">
+                            Guest
+                          </span>
+                        )}
                       </div>
-                      <div className="text-sm text-cave-text-muted truncate">{attendee.member.email}</div>
+                      <div className="text-sm text-cave-text-muted truncate">{info.email}</div>
                     </div>
 
                     {/* Status Badge */}

@@ -59,63 +59,126 @@ export function EventSignupPage() {
     }
   })
 
-  const registerMutation = useMutation({
-    mutationFn: async (data: typeof formData) => {
-      // Find member by name and email
-      const { data: members, error: memberError } = await supabase
-        .from('members')
-        .select('id, first_name, last_name, email')
-        .ilike('email', data.email)
-        .ilike('first_name', data.first_name)
-        .ilike('last_name', data.last_name)
-        .eq('status', 'ACTIVE')
-
-      if (memberError) throw memberError
-
-      if (!members || members.length === 0) {
-        setSubmitStatus('not_found')
-        return
-      }
-
-      const member = members[0]
-
-      // Check if already registered
-      const { data: existingAttendee } = await supabase
-        .from('event_attendees')
-        .select('id')
-        .eq('event_id', event!.id)
-        .eq('member_id', member.id)
+  // Fetch feature flag for member verification
+  const { data: verificationFlag } = useQuery({
+    queryKey: ['feature-flag', 'event_signup_member_verification'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('feature_flags')
+        .select('enabled')
+        .eq('key', 'event_signup_member_verification')
         .single()
 
-      if (existingAttendee) {
-        setSubmitStatus('already_registered')
-        return
-      }
+      if (error) return { enabled: true } // Default to verification enabled if flag not found
+      return data
+    }
+  })
 
-      // Determine status based on capacity
-      let rsvpStatus: 'CONFIRMED' | 'WAITLIST' = 'CONFIRMED'
-      
-      if (event!.capacity) {
-        const confirmedCount = event!.attendee_count
-        if (confirmedCount >= event!.capacity) {
-          if (event!.waitlist_enabled) {
-            rsvpStatus = 'WAITLIST'
-          } else {
-            throw new Error('Event is at full capacity')
+  const requireMemberVerification = verificationFlag?.enabled ?? true
+
+  const registerMutation = useMutation({
+    mutationFn: async (data: typeof formData) => {
+      if (requireMemberVerification) {
+        // Original flow: verify member exists
+        const { data: members, error: memberError } = await supabase
+          .from('members')
+          .select('id, first_name, last_name, email')
+          .ilike('email', data.email)
+          .ilike('first_name', data.first_name)
+          .ilike('last_name', data.last_name)
+          .eq('status', 'ACTIVE')
+
+        if (memberError) throw memberError
+
+        if (!members || members.length === 0) {
+          setSubmitStatus('not_found')
+          return
+        }
+
+        const member = members[0]
+
+        // Check if already registered
+        const { data: existingAttendee } = await supabase
+          .from('event_attendees')
+          .select('id')
+          .eq('event_id', event!.id)
+          .eq('member_id', member.id)
+          .single()
+
+        if (existingAttendee) {
+          setSubmitStatus('already_registered')
+          return
+        }
+
+        // Determine status based on capacity
+        let rsvpStatus: 'CONFIRMED' | 'WAITLIST' = 'CONFIRMED'
+        
+        if (event!.capacity) {
+          const confirmedCount = event!.attendee_count
+          if (confirmedCount >= event!.capacity) {
+            if (event!.waitlist_enabled) {
+              rsvpStatus = 'WAITLIST'
+            } else {
+              throw new Error('Event is at full capacity')
+            }
           }
         }
+
+        // Register attendee with member_id
+        const { error: attendeeError } = await supabase
+          .from('event_attendees')
+          .insert({
+            event_id: event!.id,
+            member_id: member.id,
+            rsvp_status: rsvpStatus,
+          })
+
+        if (attendeeError) throw attendeeError
+      } else {
+        // Guest flow: no member verification required
+        const guestName = `${data.first_name} ${data.last_name}`.trim()
+        const guestEmail = data.email.toLowerCase()
+
+        // Check if already registered with this email
+        const { data: existingAttendee } = await supabase
+          .from('event_attendees')
+          .select('id')
+          .eq('event_id', event!.id)
+          .eq('guest_email', guestEmail)
+          .single()
+
+        if (existingAttendee) {
+          setSubmitStatus('already_registered')
+          return
+        }
+
+        // Determine status based on capacity
+        let rsvpStatus: 'CONFIRMED' | 'WAITLIST' = 'CONFIRMED'
+        
+        if (event!.capacity) {
+          const confirmedCount = event!.attendee_count
+          if (confirmedCount >= event!.capacity) {
+            if (event!.waitlist_enabled) {
+              rsvpStatus = 'WAITLIST'
+            } else {
+              throw new Error('Event is at full capacity')
+            }
+          }
+        }
+
+        // Register as guest (no member_id)
+        const { error: attendeeError } = await supabase
+          .from('event_attendees')
+          .insert({
+            event_id: event!.id,
+            member_id: null,
+            guest_name: guestName,
+            guest_email: guestEmail,
+            rsvp_status: rsvpStatus,
+          })
+
+        if (attendeeError) throw attendeeError
       }
-
-      // Register attendee
-      const { error: attendeeError } = await supabase
-        .from('event_attendees')
-        .insert({
-          event_id: event!.id,
-          member_id: member.id,
-          rsvp_status: rsvpStatus,
-        })
-
-      if (attendeeError) throw attendeeError
 
       setSubmitStatus('success')
     },
@@ -254,17 +317,17 @@ export function EventSignupPage() {
               className="prose prose-invert prose-sm max-w-none text-cave-text-secondary"
               dangerouslySetInnerHTML={{ __html: event.description }}
             />
-           <style>{`
-  .prose ul { list-style-type: disc; padding-left: 1.5rem; margin: 0.5rem 0; }
-  .prose ol { list-style-type: decimal; padding-left: 1.5rem; margin: 0.5rem 0; }
-  .prose li { margin: 0.25rem 0; }
-  .prose a { color: #f5c542; text-decoration: underline; }
-  .prose p { margin: 0.75rem 0; line-height: 1.6; }
-  .prose h2 { font-size: 1.25rem; font-weight: 600; margin: 1.25rem 0 0.5rem; color: #f8fafc; }
-  .prose h3 { font-size: 1.1rem; font-weight: 600; margin: 1rem 0 0.5rem; color: #f8fafc; }
-  .prose strong { font-weight: 600; color: #f8fafc; }
-  .prose em { font-style: italic; }
-`}</style>
+            <style>{`
+              .prose ul { list-style-type: disc; padding-left: 1.5rem; margin: 0.5rem 0; }
+              .prose ol { list-style-type: decimal; padding-left: 1.5rem; margin: 0.5rem 0; }
+              .prose li { margin: 0.25rem 0; }
+              .prose a { color: #f5c542; text-decoration: underline; }
+              .prose p { margin: 0.75rem 0; line-height: 1.6; }
+              .prose h2 { font-size: 1.25rem; font-weight: 600; margin: 1.25rem 0 0.5rem; color: #f8fafc; }
+              .prose h3 { font-size: 1.1rem; font-weight: 600; margin: 1rem 0 0.5rem; color: #f8fafc; }
+              .prose strong { font-weight: 600; color: #f8fafc; }
+              .prose em { font-style: italic; }
+            `}</style>
           </div>
         )}
 
@@ -351,7 +414,9 @@ export function EventSignupPage() {
                   placeholder="john@example.com"
                   className="w-full px-4 py-2.5 bg-cave-bg-primary border border-cave-border rounded-lg text-cave-text-primary placeholder:text-cave-text-muted focus:outline-none focus:border-cave-gold/50"
                 />
-                <p className="text-xs text-cave-text-muted mt-1">Use the email associated with your Cave membership</p>
+                {requireMemberVerification && (
+                  <p className="text-xs text-cave-text-muted mt-1">Use the email associated with your Cave membership</p>
+                )}
               </div>
 
               <button

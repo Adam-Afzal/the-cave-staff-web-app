@@ -8,7 +8,8 @@ import {
   Settings,
   LogOut,
   MessageSquare,
-  Phone
+  Phone,
+  Flag
 } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { cn } from '../../lib/utils'
@@ -21,6 +22,7 @@ const navigation = [
   { name: 'Events', href: '/events', icon: Calendar },
   { name: 'Analytics', href: '/analytics', icon: BarChart3 },
   { name: 'Telegram', href: '/telegram', icon: MessageSquare },
+  { name: 'Feature Flags', href: '/feature-flags', icon: Flag }, 
 ]
 
 export function Sidebar() {
