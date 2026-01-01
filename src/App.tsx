@@ -1,5 +1,6 @@
+// src/App.tsx
 import { useEffect, useState } from 'react'
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Layout } from './components/layout'
 import { LoginPage, DashboardPage, MembersPage, ConciergePage } from './pages'
@@ -7,11 +8,11 @@ import { ClientCallsPage } from './pages/ClientCallsPage'
 import { EventsPage } from './pages/EventsPage'
 import { EventSignupPage } from './pages/EventSignUpPage'
 import { FeatureFlagsPage } from './pages/FeatureFlagsPage'
-
-// Outside auth-protected routes
-<Route path="/events/:slug" element={<EventSignupPage />} />
-
-
+import { EngagementPage } from './pages/EngagementPage'
+import { ProfileSetupPage } from './pages/ProfileSetupPage'
+import { EditProfilePage } from './pages/EditProfilePage'
+import { StaffManagementPage } from './pages/StaffManagementPage'
+import { useCurrentStaffProfile } from './hooks/useStaffProfile'
 import { supabase } from './lib/supabase'
 
 const queryClient = new QueryClient({
@@ -22,6 +23,32 @@ const queryClient = new QueryClient({
     },
   },
 })
+
+// Onboarding check wrapper
+function OnboardingCheck({ children }: { children: React.ReactNode }) {
+  const { data: profile, isLoading } = useCurrentStaffProfile()
+  const location = useLocation()
+
+  // Don't redirect if already on setup page
+  if (location.pathname === '/profile/setup') {
+    return <>{children}</>
+  }
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-cave-bg-primary flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-cave-gold border-t-transparent rounded-full animate-spin" />
+      </div>
+    )
+  }
+
+  // Redirect to setup if onboarding not completed
+  if (profile && !profile.onboarding_completed) {
+    return <Navigate to="/profile/setup" replace />
+  }
+
+  return <>{children}</>
+}
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true)
@@ -63,9 +90,19 @@ export default function App() {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/events/:slug" element={<EventSignupPage />} />
           
+          {/* Profile Setup - No layout, standalone page */}
+          <Route path="/profile/setup" element={
+            <ProtectedRoute>
+              <ProfileSetupPage />
+            </ProtectedRoute>
+          } />
+          
+          {/* Main App with Layout */}
           <Route element={
             <ProtectedRoute>
-              <Layout />
+              <OnboardingCheck>
+                <Layout />
+              </OnboardingCheck>
             </ProtectedRoute>
           }>
             <Route path="/" element={<DashboardPage />} />
@@ -73,10 +110,12 @@ export default function App() {
             <Route path="/concierge" element={<ConciergePage/>} />
             <Route path="/calls" element={<ClientCallsPage />} />
             <Route path="/events" element={<EventsPage />} />
+            <Route path="/engagement" element={<EngagementPage />} />
             <Route path="/feature-flags" element={<FeatureFlagsPage />} />
+            <Route path="/staff" element={<StaffManagementPage />} />
+            <Route path="/profile/edit" element={<EditProfilePage />} />
             <Route path="/analytics" element={<div className="p-6 text-cave-text-primary">Analytics - Coming Soon</div>} />
             <Route path="/settings" element={<div className="p-6 text-cave-text-primary">Settings - Coming Soon</div>} />
-          
           </Route>
 
           <Route path="*" element={<Navigate to="/" replace />} />

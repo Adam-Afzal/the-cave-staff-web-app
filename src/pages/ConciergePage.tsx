@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Header } from '../components/layout'
+import { Header } from '../components/layout/Header'
 import { Plus, AlertCircle, Clock, CheckCircle, Calendar, X, Users, Link2, FileText, Edit3, Search } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { cn, getInitials, formatRelativeTime } from '../lib/utils'

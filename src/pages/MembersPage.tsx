@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Header } from '../components/layout'
+import { Header } from '../components/layout/Header'
 import { Search, Filter, Plus, MoreHorizontal, Mail, Phone, Loader2 } from 'lucide-react'
 import { cn, getInitials } from '../lib/utils'
 import { supabase } from '../lib/supabase'

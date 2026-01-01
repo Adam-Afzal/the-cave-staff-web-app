@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Header } from '../components/layout'
+import { Header } from '../components/layout/Header'
 import { 
   Phone, 
   AlertCircle, 

@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { Header } from '../components/layout'
+import { Header } from '../components/layout/Header'
 import { 
   Users, 
   Link2, 
