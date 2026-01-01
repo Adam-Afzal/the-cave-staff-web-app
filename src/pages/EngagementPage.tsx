@@ -22,12 +22,10 @@ import {
   useTopicPerformance,
   useUserPerformance,
   useMembersAtRisk,
-  useUsersList,
+
   useMemberProfile,
   useMemberActivityByTopic,
   type UserPerformance,
-  type TopicPerformance,
-  type MemberAtRisk
 } from '../hooks/useEngagement'
 import { cn } from '../lib/utils'
 
