@@ -13,6 +13,7 @@ export interface StaffProfile {
   intro: string | null
   avatar_url: string | null
   telegram_username: string | null
+  telegram_id: number | null
   onboarding_completed: boolean
   created_at: string
   updated_at: string
@@ -145,18 +146,20 @@ export function useCreateStaffUser() {
       firstName,
       lastName,
       telegramUsername,
+      telegramId,
     }: {
       email: string
       password: string
       firstName: string
       lastName: string
       telegramUsername?: string
+      telegramId?: number
     }) => {
       // Create user via FastAPI backend (uses Supabase Admin API)
       const response = await fetch(`${import.meta.env.VITE_API_URL}/api/staff/create`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password, firstName, lastName, telegramUsername }),
+        body: JSON.stringify({ email, password, firstName, lastName, telegramUsername, telegramId }),
       })
 
       if (!response.ok) {
@@ -193,11 +196,11 @@ export function useResetStaffPassword() {
 
 export function useFetchTelegramAvatar() {
   return useMutation({
-    mutationFn: async (username: string) => {
+    mutationFn: async (params: { username?: string; telegram_id?: number }) => {
       const response = await fetch(`${import.meta.env.VITE_API_URL}/api/staff/telegram/avatar`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username }),
+        body: JSON.stringify(params),
       })
 
       if (!response.ok) {

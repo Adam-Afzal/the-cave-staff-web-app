@@ -14,6 +14,22 @@ import {
 import { useAllStaffProfiles, useCreateStaffUser, useResetStaffPassword, useFetchTelegramAvatar, type StaffProfile } from '../hooks/useStaffProfile'
 import { cn } from '../lib/utils'
 
+// Helper to check if a string is a telegram ID (all digits)
+function isTelegramId(value: string): boolean {
+  return /^\d+$/.test(value.trim())
+}
+
+// Helper to format telegram display from profile
+function formatTelegramDisplay(profile: StaffProfile): string | null {
+  if (profile.telegram_username) {
+    return `@${profile.telegram_username}`
+  }
+  if (profile.telegram_id) {
+    return `ID: ${profile.telegram_id}`
+  }
+  return null
+}
+
 export function StaffManagementPage() {
   const { data: staffProfiles, isLoading } = useAllStaffProfiles()
   const [showCreateModal, setShowCreateModal] = useState(false)
@@ -97,11 +113,11 @@ export function StaffManagementPage() {
                             ? `${staff.first_name || ''} ${staff.last_name || ''}`.trim()
                             : 'Unnamed'}
                         </p>
-                        {staff.intro && (
-                          <p className="text-xs text-cave-text-secondary truncate max-w-xs">
-                            {staff.intro}
+                        {staff.telegram_username || staff.telegram_id ? (
+                          <p className="text-xs text-cave-text-secondary">
+                            {formatTelegramDisplay(staff)}
                           </p>
-                        )}
+                        ) : null}
                       </div>
                     </div>
                   </td>
@@ -167,20 +183,28 @@ function CreateStaffModal({ onClose }: { onClose: () => void }) {
   const [password, setPassword] = useState('')
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
-  const [telegramUsername, setTelegramUsername] = useState('')
+  const [telegramInput, setTelegramInput] = useState('')
   const [telegramAvatarPreview, setTelegramAvatarPreview] = useState<string | null>(null)
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
   const [fetchingAvatar, setFetchingAvatar] = useState(false)
 
+  // Determine if input is telegram ID or username
+  const isIdInput = isTelegramId(telegramInput)
+
   const handleTelegramLookup = async () => {
-    if (!telegramUsername.trim()) return
+    if (!telegramInput.trim()) return
     
     setFetchingAvatar(true)
     setError('')
     
     try {
-      const result = await fetchTelegramAvatar.mutateAsync(telegramUsername)
+      // Pass either username or telegram_id based on input type
+      const params = isIdInput 
+        ? { telegram_id: parseInt(telegramInput.trim(), 10) }
+        : { username: telegramInput.trim() }
+      
+      const result = await fetchTelegramAvatar.mutateAsync(params)
       setTelegramAvatarPreview(result.photo_data_url)
       
       // Auto-fill name if empty
@@ -209,12 +233,16 @@ function CreateStaffModal({ onClose }: { onClose: () => void }) {
     }
 
     try {
+      // Determine if it's a telegram ID or username
+      const isId = isTelegramId(telegramInput)
+      
       await createStaff.mutateAsync({ 
         email, 
         password, 
         firstName, 
         lastName,
-        telegramUsername: telegramUsername.trim() || undefined
+        telegramUsername: !isId && telegramInput.trim() ? telegramInput.trim() : undefined,
+        telegramId: isId ? parseInt(telegramInput.trim(), 10) : undefined
       })
       onClose()
     } catch (err: any) {
@@ -241,26 +269,34 @@ function CreateStaffModal({ onClose }: { onClose: () => void }) {
               </div>
             )}
 
-            {/* Telegram Username with Avatar Preview */}
+            {/* Telegram Username/ID with Avatar Preview */}
             <div>
               <label className="block text-sm font-medium text-cave-text-primary mb-1.5">
-                Telegram Username <span className="text-cave-text-secondary font-normal">(optional)</span>
+                Telegram <span className="text-cave-text-secondary font-normal">(username or ID)</span>
               </label>
               <div className="flex gap-2">
                 <div className="relative flex-1">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-cave-text-secondary">@</span>
                   <input
                     type="text"
-                    value={telegramUsername}
-                    onChange={(e) => setTelegramUsername(e.target.value.replace('@', ''))}
-                    placeholder="username"
-                    className="w-full pl-8 pr-4 py-2.5 bg-cave-bg-elevated border border-cave-border rounded-lg text-cave-text-primary placeholder:text-cave-text-secondary focus:outline-none focus:border-cave-gold"
+                    value={telegramInput}
+                    onChange={(e) => {
+                      // Remove @ if user types it
+                      setTelegramInput(e.target.value.replace('@', ''))
+                      setTelegramAvatarPreview(null)
+                    }}
+                    placeholder="username or 1234567890"
+                    className="w-full px-4 py-2.5 bg-cave-bg-elevated border border-cave-border rounded-lg text-cave-text-primary placeholder:text-cave-text-secondary focus:outline-none focus:border-cave-gold"
                   />
+                  {telegramInput && (
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-cave-text-secondary">
+                      {isIdInput ? 'ID' : 'username'}
+                    </span>
+                  )}
                 </div>
                 <button
                   type="button"
                   onClick={handleTelegramLookup}
-                  disabled={!telegramUsername.trim() || fetchingAvatar}
+                  disabled={!telegramInput.trim() || fetchingAvatar}
                   className={cn(
                     "px-4 py-2.5 rounded-lg font-medium transition-colors",
                     "bg-cave-bg-elevated border border-cave-border text-cave-text-primary",
@@ -270,6 +306,9 @@ function CreateStaffModal({ onClose }: { onClose: () => void }) {
                   {fetchingAvatar ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Lookup'}
                 </button>
               </div>
+              <p className="text-xs text-cave-text-secondary mt-1">
+                Enter @username or numeric Telegram ID
+              </p>
               {telegramAvatarPreview && (
                 <div className="mt-3 flex items-center gap-3 p-3 rounded-lg bg-cave-bg-elevated">
                   <img 

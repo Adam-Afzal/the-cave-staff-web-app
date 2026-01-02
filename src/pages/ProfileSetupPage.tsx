@@ -73,6 +73,15 @@ export function ProfileSetupPage() {
     )
   }
 
+  // Display telegram identifier (username or ID)
+  const telegramDisplay = profile?.telegram_username 
+    ? `@${profile.telegram_username}`
+    : profile?.telegram_id
+      ? `ID: ${profile.telegram_id}`
+      : null
+  
+  const hasTelegram = !!(profile?.telegram_username || profile?.telegram_id)
+
   return (
     <div className="min-h-screen bg-cave-bg-primary flex items-center justify-center p-4">
       <div className="w-full max-w-lg">
@@ -105,10 +114,10 @@ export function ProfileSetupPage() {
               )}
             </div>
             
-            {profile?.telegram_username ? (
+            {hasTelegram ? (
               <div className="mt-3 text-center">
                 <p className="text-xs text-cave-text-secondary mb-2">
-                  Synced from @{profile.telegram_username}
+                  Synced from {telegramDisplay}
                 </p>
                 <button
                   type="button"
