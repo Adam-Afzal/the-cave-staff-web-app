@@ -4,6 +4,7 @@ import { useQuery, useMutation } from '@tanstack/react-query'
 import { Calendar, MapPin, Users, Video, Globe, Clock, CheckCircle, AlertCircle } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 
+
 type LocationType = 'in_person' | 'online' | 'hybrid'
 
 interface Event {
@@ -25,15 +26,19 @@ interface Event {
   attendee_count: number
 }
 
+
+
 export function EventSignupPage() {
   const { slug } = useParams<{ slug: string }>()
   
   const [formData, setFormData] = useState({
     first_name: '',
     last_name: '',
-    email: '',
+    member_id: '',
+    email: ''
   })
   const [submitStatus, setSubmitStatus] = useState<'idle' | 'success' | 'error' | 'not_found' | 'already_registered'>('idle')
+  const [registeredName, setRegisteredName] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
 
   // Fetch event by slug
@@ -79,13 +84,11 @@ export function EventSignupPage() {
   const registerMutation = useMutation({
     mutationFn: async (data: typeof formData) => {
       if (requireMemberVerification) {
-        // Original flow: verify member exists
+        // Member verification flow: verify member exists by member_id
         const { data: members, error: memberError } = await supabase
           .from('members')
-          .select('id, first_name, last_name, email')
-          .ilike('email', data.email)
-          .ilike('first_name', data.first_name)
-          .ilike('last_name', data.last_name)
+          .select('id, first_name, last_name, member_id')
+          .ilike('member_id', data.member_id.trim())
           .eq('status', 'ACTIVE')
 
         if (memberError) throw memberError
@@ -96,6 +99,7 @@ export function EventSignupPage() {
         }
 
         const member = members[0]
+        setRegisteredName(member.first_name || '')
 
         // Check if already registered
         const { data: existingAttendee } = await supabase
@@ -124,7 +128,6 @@ export function EventSignupPage() {
           }
         }
 
-        // Register attendee with member_id
         const { error: attendeeError } = await supabase
           .from('event_attendees')
           .insert({
@@ -137,7 +140,9 @@ export function EventSignupPage() {
       } else {
         // Guest flow: no member verification required
         const guestName = `${data.first_name} ${data.last_name}`.trim()
-        const guestEmail = data.email.toLowerCase()
+        const guestEmail = data.email.toLowerCase().trim()
+        
+        setRegisteredName(data.first_name)
 
         // Check if already registered with this email
         const { data: existingAttendee } = await supabase
@@ -350,20 +355,24 @@ export function EventSignupPage() {
           ) : submitStatus === 'success' ? (
             <div className="text-center py-8">
               <CheckCircle className="w-12 h-12 text-cave-status-success mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-cave-text-primary mb-2">You're Registered!</h3>
+              <h3 className="text-lg font-medium text-cave-text-primary mb-2">
+                You're Registered{registeredName ? `, ${registeredName}` : ''}!
+              </h3>
               <p className="text-cave-text-secondary">We've added you to the event. See you there!</p>
             </div>
           ) : submitStatus === 'already_registered' ? (
             <div className="text-center py-8">
               <CheckCircle className="w-12 h-12 text-cave-status-info mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-cave-text-primary mb-2">Already Registered</h3>
+              <h3 className="text-lg font-medium text-cave-text-primary mb-2">
+                Already Registered{registeredName ? `, ${registeredName}` : ''}
+              </h3>
               <p className="text-cave-text-secondary">You're already signed up for this event.</p>
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-4">
               {submitStatus === 'not_found' && (
                 <div className="p-4 bg-cave-status-error/10 border border-cave-status-error/30 rounded-lg text-cave-status-error text-sm">
-                  We couldn't find your membership with those details. Please check your name and email match your membership records, or contact us for help.
+                  We couldn't find your membership with that ID. Please check if you entered your member ID correctly, or contact us on Telegram for help.
                 </div>
               )}
 
@@ -373,51 +382,71 @@ export function EventSignupPage() {
                 </div>
               )}
 
-              <div className="grid grid-cols-2 gap-4">
+              {requireMemberVerification ? (
+                // Member verification ON: just ask for member_id
                 <div>
                   <label className="block text-sm font-medium text-cave-text-secondary mb-2">
-                    First Name
+                    Member ID
                   </label>
                   <input
                     type="text"
                     required
-                    value={formData.first_name}
-                    onChange={(e) => setFormData({ ...formData, first_name: e.target.value })}
-                    placeholder="John"
+                    value={formData.member_id}
+                    onChange={(e) => setFormData({ ...formData, member_id: e.target.value })}
+                    placeholder="e.g. swift-river-compass"
                     className="w-full px-4 py-2.5 bg-cave-bg-primary border border-cave-border rounded-lg text-cave-text-primary placeholder:text-cave-text-muted focus:outline-none focus:border-cave-gold/50"
                   />
+                  <p className="text-xs text-cave-text-muted mt-1">
+                    This is your unique ID for The Cave.
+                  </p>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-cave-text-secondary mb-2">
-                    Last Name
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={formData.last_name}
-                    onChange={(e) => setFormData({ ...formData, last_name: e.target.value })}
-                    placeholder="Doe"
-                    className="w-full px-4 py-2.5 bg-cave-bg-primary border border-cave-border rounded-lg text-cave-text-primary placeholder:text-cave-text-muted focus:outline-none focus:border-cave-gold/50"
-                  />
-                </div>
-              </div>
+              ) : (
+                // Member verification OFF: ask for name and email (guest mode)
+                <>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-cave-text-secondary mb-2">
+                        First Name
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={formData.first_name}
+                        onChange={(e) => setFormData({ ...formData, first_name: e.target.value })}
+                        placeholder="John"
+                        className="w-full px-4 py-2.5 bg-cave-bg-primary border border-cave-border rounded-lg text-cave-text-primary placeholder:text-cave-text-muted focus:outline-none focus:border-cave-gold/50"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-cave-text-secondary mb-2">
+                        Last Name
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={formData.last_name}
+                        onChange={(e) => setFormData({ ...formData, last_name: e.target.value })}
+                        placeholder="Doe"
+                        className="w-full px-4 py-2.5 bg-cave-bg-primary border border-cave-border rounded-lg text-cave-text-primary placeholder:text-cave-text-muted focus:outline-none focus:border-cave-gold/50"
+                      />
+                    </div>
+                  </div>
 
-              <div>
-                <label className="block text-sm font-medium text-cave-text-secondary mb-2">
-                  Email
-                </label>
-                <input
-                  type="email"
-                  required
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  placeholder="john@example.com"
-                  className="w-full px-4 py-2.5 bg-cave-bg-primary border border-cave-border rounded-lg text-cave-text-primary placeholder:text-cave-text-muted focus:outline-none focus:border-cave-gold/50"
-                />
-                {requireMemberVerification && (
-                  <p className="text-xs text-cave-text-muted mt-1">Use the email associated with your Cave membership</p>
-                )}
-              </div>
+                  <div>
+                    <label className="block text-sm font-medium text-cave-text-secondary mb-2">
+                      Email
+                    </label>
+                    <input
+                      type="email"
+                      required
+                      value={formData.email}
+                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                      placeholder="john@example.com"
+                      className="w-full px-4 py-2.5 bg-cave-bg-primary border border-cave-border rounded-lg text-cave-text-primary placeholder:text-cave-text-muted focus:outline-none focus:border-cave-gold/50"
+                    />
+                  </div>
+                </>
+              )}
 
               <button
                 type="submit"
@@ -432,7 +461,7 @@ export function EventSignupPage() {
 
         {/* Footer */}
         <div className="text-center mt-8 text-cave-text-muted text-sm">
-          <p>Questions? Contact us at hello@thecave.app</p>
+          <p>Questions? Contact the team on Telegram.</p>
         </div>
       </div>
     </div>
