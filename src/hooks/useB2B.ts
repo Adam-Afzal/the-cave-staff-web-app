@@ -52,7 +52,7 @@ export interface B2BIntro {
   member_display_id?: string
   partner_name?: string
   partner_slug?: string
-  status: 'intro_made' | 'scheduled' | 'member_declined' | 'connected' | 'lost' | 'closed_won'
+  status: 'intro_made' | 'scheduled' | 'member_declined' | 'na'
   intro_date: string
   last_followup_at: string | null
   next_followup_at: string | null
