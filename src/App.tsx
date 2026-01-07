@@ -1,6 +1,6 @@
 // src/App.tsx
 import { useEffect, useState } from 'react'
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Layout } from './components/layout'
 import { LoginPage, DashboardPage, MembersPage, ConciergePage } from './pages'
@@ -12,6 +12,9 @@ import { EngagementPage } from './pages/EngagementPage'
 import { ProfileSetupPage } from './pages/ProfileSetupPage'
 import { EditProfilePage } from './pages/EditProfilePage'
 import { StaffManagementPage } from './pages/StaffManagementPage'
+import { B2BAssessmentPage } from './pages/B2BAssessmentPage'
+import { B2BIntrosPage } from './pages/B2BIntrosPage'
+import { ScheduledCallsPage } from './pages/ScheduledCallsPage'
 import { useCurrentStaffProfile } from './hooks/useStaffProfile'
 import { supabase } from './lib/supabase'
 
@@ -114,6 +117,9 @@ export default function App() {
             <Route path="/feature-flags" element={<FeatureFlagsPage />} />
             <Route path="/staff" element={<StaffManagementPage />} />
             <Route path="/profile/edit" element={<EditProfilePage />} />
+            <Route path="/b2b/assess" element={<B2BAssessmentPage />} />
+            <Route path="/b2b/intros" element={<B2BIntrosPage />} />
+            <Route path="/b2b/calls" element={<ScheduledCallsPage />} />
             <Route path="/analytics" element={<div className="p-6 text-cave-text-primary">Analytics - Coming Soon</div>} />
             <Route path="/settings" element={<div className="p-6 text-cave-text-primary">Settings - Coming Soon</div>} />
           </Route>
