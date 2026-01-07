@@ -1,5 +1,6 @@
 // src/hooks/useB2B.ts
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { supabase } from '../lib/supabase'
 
 const API_URL = import.meta.env.VITE_API_URL
 
@@ -23,11 +24,12 @@ export interface ScheduledCall {
   attendee_email: string | null
   attendee_phone: string | null
   member_id: string | null
-  member_name: string | null
-  member_display_id: string | null
   status: 'scheduled' | 'reminder_sent' | 'completed' | 'no_show' | 'cancelled'
   reminder_sent_at: string | null
   created_at: string
+  // Joined fields
+  member_name?: string | null
+  member_display_id?: string | null
 }
 
 export interface B2BAssessment {
@@ -58,7 +60,6 @@ export interface B2BIntro {
   next_followup_at: string | null
   closed_at: string | null
   notes: string | null
-  partners?: { name: string; slug: string }
 }
 
 export interface B2BStats {
@@ -80,36 +81,61 @@ export interface AssessmentCreateData {
 }
 
 // =====================================================
-// PARTNERS
+// PARTNERS (Direct Supabase)
 // =====================================================
 
 export function usePartners() {
   return useQuery({
     queryKey: ['partners'],
     queryFn: async () => {
-      const response = await fetch(`${API_URL}/api/b2b/partners`)
-      if (!response.ok) throw new Error('Failed to fetch partners')
-      return response.json() as Promise<Partner[]>
+      const { data, error } = await supabase
+        .from('partners')
+        .select('*')
+        .eq('active', true)
+        .order('name')
+      
+      if (error) throw error
+      return data as Partner[]
     }
   })
 }
 
 // =====================================================
-// SCHEDULED CALLS
+// SCHEDULED CALLS (Direct Supabase)
 // =====================================================
 
 export function useScheduledCalls(options?: { upcoming?: boolean; status?: string }) {
-  const params = new URLSearchParams()
-  if (options?.upcoming) params.append('upcoming', 'true')
-  if (options?.status) params.append('status', options.status)
-  
   return useQuery({
     queryKey: ['scheduled-calls', options],
     queryFn: async () => {
-      const url = `${API_URL}/api/b2b/calls${params.toString() ? `?${params}` : ''}`
-      const response = await fetch(url)
-      if (!response.ok) throw new Error('Failed to fetch calls')
-      return response.json() as Promise<ScheduledCall[]>
+      let query = supabase
+        .from('scheduled_calls')
+        .select('*, members(first_name, last_name, member_id)')
+        .order('starts_at', { ascending: false })
+        .limit(50)
+      
+      if (options?.status) {
+        query = query.eq('status', options.status)
+      }
+      
+      if (options?.upcoming) {
+        const now = new Date().toISOString()
+        query = query.gte('starts_at', now).eq('status', 'scheduled')
+      }
+      
+      const { data, error } = await query
+      if (error) throw error
+      
+      // Format response
+      return data.map((row: any) => {
+        const member = row.members || {}
+        return {
+          ...row,
+          members: undefined,
+          member_name: `${member.first_name || ''} ${member.last_name || ''}`.trim() || null,
+          member_display_id: member.member_id || null
+        }
+      }) as ScheduledCall[]
     },
     refetchInterval: 60000 // Refresh every minute
   })
@@ -120,11 +146,15 @@ export function useUpdateCallStatus() {
   
   return useMutation({
     mutationFn: async ({ callId, status }: { callId: string; status: string }) => {
-      const response = await fetch(`${API_URL}/api/b2b/calls/${callId}?status=${status}`, {
-        method: 'PATCH'
-      })
-      if (!response.ok) throw new Error('Failed to update call status')
-      return response.json()
+      const { data, error } = await supabase
+        .from('scheduled_calls')
+        .update({ status })
+        .eq('id', callId)
+        .select()
+        .single()
+      
+      if (error) throw error
+      return data
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['scheduled-calls'] })
@@ -133,21 +163,36 @@ export function useUpdateCallStatus() {
 }
 
 // =====================================================
-// ASSESSMENTS
+// ASSESSMENTS (Direct Supabase for reads, API for create)
 // =====================================================
 
 export function useAssessments(options?: { member_id?: string; limit?: number }) {
-  const params = new URLSearchParams()
-  if (options?.member_id) params.append('member_id', options.member_id)
-  if (options?.limit) params.append('limit', options.limit.toString())
-  
   return useQuery({
     queryKey: ['b2b-assessments', options],
     queryFn: async () => {
-      const url = `${API_URL}/api/b2b/assessments${params.toString() ? `?${params}` : ''}`
-      const response = await fetch(url)
-      if (!response.ok) throw new Error('Failed to fetch assessments')
-      return response.json() as Promise<B2BAssessment[]>
+      let query = supabase
+        .from('b2b_assessments')
+        .select('*, members(first_name, last_name, member_id)')
+        .order('assessed_at', { ascending: false })
+        .limit(options?.limit || 50)
+      
+      if (options?.member_id) {
+        query = query.eq('member_id', options.member_id)
+      }
+      
+      const { data, error } = await query
+      if (error) throw error
+      
+      // Format response
+      return data.map((row: any) => {
+        const member = row.members || {}
+        return {
+          ...row,
+          members: undefined,
+          member_name: `${member.first_name || ''} ${member.last_name || ''}`.trim() || null,
+          member_display_id: member.member_id || null
+        }
+      }) as B2BAssessment[]
     }
   })
 }
@@ -156,14 +201,28 @@ export function useAssessment(assessmentId: string) {
   return useQuery({
     queryKey: ['b2b-assessment', assessmentId],
     queryFn: async () => {
-      const response = await fetch(`${API_URL}/api/b2b/assessments/${assessmentId}`)
-      if (!response.ok) throw new Error('Failed to fetch assessment')
-      return response.json() as Promise<B2BAssessment>
+      const { data, error } = await supabase
+        .from('b2b_assessments')
+        .select('*, members(first_name, last_name, member_id), b2b_intros(*, partners(name, slug))')
+        .eq('id', assessmentId)
+        .single()
+      
+      if (error) throw error
+      
+      const member = data.members || {}
+      return {
+        ...data,
+        members: undefined,
+        member_name: `${member.first_name || ''} ${member.last_name || ''}`.trim() || null,
+        member_display_id: member.member_id || null,
+        intros: data.b2b_intros || []
+      } as B2BAssessment
     },
     enabled: !!assessmentId
   })
 }
 
+// Create assessment goes through API (has Slack notification logic)
 export function useCreateAssessment() {
   const queryClient = useQueryClient()
   
@@ -189,21 +248,47 @@ export function useCreateAssessment() {
 }
 
 // =====================================================
-// INTROS
+// INTROS (Direct Supabase)
 // =====================================================
 
 export function useIntros(options?: { status?: string; needs_followup?: boolean }) {
-  const params = new URLSearchParams()
-  if (options?.status) params.append('status', options.status)
-  if (options?.needs_followup) params.append('needs_followup', 'true')
-  
   return useQuery({
     queryKey: ['b2b-intros', options],
     queryFn: async () => {
-      const url = `${API_URL}/api/b2b/intros${params.toString() ? `?${params}` : ''}`
-      const response = await fetch(url)
-      if (!response.ok) throw new Error('Failed to fetch intros')
-      return response.json() as Promise<B2BIntro[]>
+      let query = supabase
+        .from('b2b_intros')
+        .select('*, members(first_name, last_name, member_id), partners(name, slug)')
+        .order('intro_date', { ascending: false })
+        .limit(50)
+      
+      if (options?.status) {
+        query = query.eq('status', options.status)
+      }
+      
+      if (options?.needs_followup) {
+        const now = new Date().toISOString()
+        query = query
+          .lte('next_followup_at', now)
+          .eq('status', 'intro_made')
+      }
+      
+      const { data, error } = await query
+      if (error) throw error
+      
+      // Format response
+      return data.map((row: any) => {
+        const member = row.members || {}
+        const partner = row.partners || {}
+        return {
+          ...row,
+          members: undefined,
+          partners: undefined,
+          member_name: `${member.first_name || ''} ${member.last_name || ''}`.trim() || null,
+          member_display_id: member.member_id || null,
+          partner_name: partner.name || null,
+          partner_slug: partner.slug || null
+        }
+      }) as B2BIntro[]
     }
   })
 }
@@ -213,32 +298,99 @@ export function useUpdateIntro() {
   
   return useMutation({
     mutationFn: async ({ introId, status, notes }: { introId: string; status: string; notes?: string }) => {
-      const response = await fetch(`${API_URL}/api/b2b/intros/${introId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status, notes })
-      })
-      if (!response.ok) throw new Error('Failed to update intro')
-      return response.json()
+      // Get current intro to calculate next followup
+      const {  error: fetchError } = await supabase
+        .from('b2b_intros')
+        .select('intro_date')
+        .eq('id', introId)
+        .single()
+      
+      if (fetchError) throw fetchError
+      
+      const updateData: Record<string, any> = {
+        status,
+        last_followup_at: new Date().toISOString()
+      }
+      
+      if (notes) {
+        updateData.notes = notes
+      }
+      
+      // If changing to intro_made, set next followup to 3 days from now
+      if (status === 'intro_made') {
+        updateData.next_followup_at = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString()
+        updateData.intro_date = new Date().toISOString()
+      } else {
+        // Other statuses don't need followups
+        updateData.next_followup_at = null
+      }
+      
+      const { data, error } = await supabase
+        .from('b2b_intros')
+        .update(updateData)
+        .eq('id', introId)
+        .select()
+        .single()
+      
+      if (error) throw error
+      return data
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['b2b-intros'] })
       queryClient.invalidateQueries({ queryKey: ['b2b-stats'] })
+      queryClient.invalidateQueries({ queryKey: ['b2b-assessment-detail'] })
     }
   })
 }
 
 // =====================================================
-// STATS
+// STATS (Direct Supabase)
 // =====================================================
 
 export function useB2BStats() {
   return useQuery({
     queryKey: ['b2b-stats'],
     queryFn: async () => {
-      const response = await fetch(`${API_URL}/api/b2b/stats`)
-      if (!response.ok) throw new Error('Failed to fetch stats')
-      return response.json() as Promise<B2BStats>
+      // Get assessments
+      const { data: assessments, error: assessError } = await supabase
+        .from('b2b_assessments')
+        .select('id, is_b2b_fit')
+      
+      if (assessError) throw assessError
+      
+      const total_assessments = assessments.length
+      const b2b_fits = assessments.filter(a => a.is_b2b_fit).length
+      
+      // Get intros
+      const { data: intros, error: introsError } = await supabase
+        .from('b2b_intros')
+        .select('id, status')
+      
+      if (introsError) throw introsError
+      
+      const intro_by_status: Record<string, number> = {}
+      intros.forEach(intro => {
+        intro_by_status[intro.status] = (intro_by_status[intro.status] || 0) + 1
+      })
+      
+      // Get pending followups
+      const now = new Date().toISOString()
+      const { data: pending, error: pendingError } = await supabase
+        .from('b2b_intros')
+        .select('id')
+        .lte('next_followup_at', now)
+        .eq('status', 'intro_made')
+      
+      if (pendingError) throw pendingError
+      
+      return {
+        total_assessments,
+        b2b_fits,
+        b2b_fit_rate: total_assessments > 0 ? Math.round(b2b_fits / total_assessments * 100 * 10) / 10 : 0,
+        total_intros: intros.length,
+        intro_by_status,
+        pending_followups: pending.length
+      } as B2BStats
     }
   })
 }
