@@ -5,12 +5,8 @@ import {
   Handshake, 
   Plus,
   Clock,
-  CheckCircle,
-  XCircle,
-  AlertCircle,
   ChevronDown,
   Loader2,
-  Calendar,
   Building2,
   User
 } from 'lucide-react'
