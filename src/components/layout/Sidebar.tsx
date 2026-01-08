@@ -30,7 +30,7 @@ const navigation = [
 ]
 
 const b2bNavigation = [
-  { name: 'Scheduled Calls', href: '/b2b/calls', icon: Phone },
+  { name: 'Onboarding Calls', href: '/b2b/calls', icon: Phone },
   { name: 'Log Assessment', href: '/b2b/assess', icon: ClipboardCheck },
   { name: 'Intros', href: '/b2b/intros', icon: Handshake },
 ]

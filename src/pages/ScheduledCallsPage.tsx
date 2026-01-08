@@ -99,7 +99,7 @@ export function ScheduledCallsPage() {
         <div>
           <h1 className="text-2xl font-bold text-cave-text-primary flex items-center gap-3">
             <Phone className="w-7 h-7 text-cave-gold" />
-            Scheduled Calls
+            Onboarding Calls
           </h1>
           <p className="text-cave-text-secondary mt-1">
             Onboarding calls from GHL calendar
