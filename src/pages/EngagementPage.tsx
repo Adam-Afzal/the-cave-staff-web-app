@@ -22,12 +22,25 @@ import {
   useTopicPerformance,
   useUserPerformance,
   useMembersAtRisk,
-
   useMemberProfile,
   useMemberActivityByTopic,
   type UserPerformance,
 } from '../hooks/useEngagement'
 import { cn } from '../lib/utils'
+
+// Topic ID to Name mapping
+const topicsMap: Record<string, string> = {
+  '213': 'Intros',
+  '14': 'AI, SAAS, IT',
+  '24': 'Asset Allocation & Investment Strategy',
+  '32': 'Health and Fitness',
+  '38': 'Parenting',
+  '36': 'Islam',
+  '1': 'Lounge',
+  '34': 'Marriage and Polygyny',
+  '2': 'Ask for Help',
+  '6': 'Announcements'
+}
 
 // ============================================================
 // METRIC CARD COMPONENT
@@ -319,7 +332,7 @@ function TopicPerformanceTable() {
             {topics?.slice(0, 10).map((topic) => (
               <tr key={topic.topic_id} className="hover:bg-cave-bg-elevated transition-colors">
                 <td className="px-4 py-3">
-                  <p className="font-medium text-cave-text-primary">{topic.topic_name}</p>
+                  <p className="font-medium text-cave-text-primary">{topicsMap[topic.topic_id] || topic.topic_name}</p>
                 </td>
                 <td className="px-4 py-3 text-right">
                   <span className="font-semibold text-cave-gold">{topic.engagements_this_week}</span>
@@ -550,7 +563,7 @@ function MemberDetailPanel({ memberId, onClose }: { memberId: string; onClose: (
                   className="p-3 rounded-lg bg-cave-bg-elevated flex items-center justify-between"
                 >
                   <div>
-                    <p className="font-medium text-cave-text-primary">{topic.topic_name}</p>
+                    <p className="font-medium text-cave-text-primary">{topicsMap[topic.topic_id] || topic.topic_name}</p>
                     <p className="text-xs text-cave-text-secondary">
                       {topic.message_count} messages · {topic.total_reactions} reactions
                     </p>
