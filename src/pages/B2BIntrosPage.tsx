@@ -11,8 +11,11 @@ import {
   Loader2,
   Building2,
   User,
-  FileText
+  FileText,
+  PoundSterling
 } from 'lucide-react'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { supabase } from '../lib/supabase'
 import { useIntros, useUpdateIntro, useB2BStats, useAssessments } from '../hooks/useB2B'
 import { cn } from '../lib/utils'
 
@@ -29,7 +32,10 @@ export function B2BIntrosPage() {
   const [viewMode, setViewMode] = useState<ViewMode>('intros')
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('active')
   const [expandedIntro, setExpandedIntro] = useState<string | null>(null)
+  const [editingDealAmount, setEditingDealAmount] = useState<string | null>(null)
+  const [dealAmountValue, setDealAmountValue] = useState<string>('')
   
+  const queryClient = useQueryClient()
   const { data: stats } = useB2BStats()
   const { data: intros, isLoading } = useIntros(
     statusFilter === 'pending_followup' 
@@ -39,6 +45,39 @@ export function B2BIntrosPage() {
         : undefined
   )
   const updateIntro = useUpdateIntro()
+  
+  // Update deal amount mutation
+  const updateDealAmount = useMutation({
+    mutationFn: async ({ introId, amount }: { introId: string, amount: number | null }) => {
+      const { error } = await supabase
+        .from('b2b_intros')
+        .update({ deal_amount: amount })
+        .eq('id', introId)
+      
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['b2b-intros'] })
+      queryClient.invalidateQueries({ queryKey: ['b2b-stats'] })
+      setEditingDealAmount(null)
+      setDealAmountValue('')
+    }
+  })
+  
+  const handleSaveDealAmount = (introId: string) => {
+    const amount = dealAmountValue ? parseFloat(dealAmountValue) : null
+    updateDealAmount.mutate({ introId, amount })
+  }
+  
+  const formatCurrency = (amount: number | null) => {
+    if (amount === null || amount === undefined) return '—'
+    return new Intl.NumberFormat('en-GB', {
+      style: 'currency',
+      currency: 'GBP',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0
+    }).format(amount)
+  }
   
   // Filter intros based on status
   const filteredIntros = intros?.filter(intro => {
@@ -256,11 +295,11 @@ export function B2BIntrosPage() {
                   {/* Expanded Details */}
                   {isExpanded && (
                     <div className="px-4 pb-4 border-t border-cave-border/50 mt-0 pt-4 bg-cave-bg-elevated/30">
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-4">
                         {/* Update Status */}
                         <div>
                           <label className="block text-sm font-medium text-cave-text-secondary mb-2">
-                            Update Status
+                            Status
                           </label>
                           <div className="flex flex-wrap gap-2">
                             {Object.entries(STATUS_CONFIG).map(([status, config]) => (
@@ -283,6 +322,60 @@ export function B2BIntrosPage() {
                               </button>
                             ))}
                           </div>
+                        </div>
+                        
+                        {/* Deal Amount */}
+                        <div>
+                          <label className="block text-sm font-medium text-cave-text-secondary mb-2">
+                            Deal Amount
+                          </label>
+                          {editingDealAmount === intro.id ? (
+                            <div className="flex items-center gap-2">
+                              <div className="relative flex-1 max-w-xs">
+                                <PoundSterling className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-cave-text-muted" />
+                                <input
+                                  type="number"
+                                  value={dealAmountValue}
+                                  onChange={(e) => setDealAmountValue(e.target.value)}
+                                  onClick={(e) => e.stopPropagation()}
+                                  placeholder="0"
+                                  className="w-full pl-9 pr-4 py-2 bg-cave-bg-primary border border-cave-border rounded-lg text-cave-text-primary focus:outline-none focus:border-cave-gold"
+                                />
+                              </div>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  handleSaveDealAmount(intro.id)
+                                }}
+                                disabled={updateDealAmount.isPending}
+                                className="px-3 py-2 rounded-lg bg-cave-gold text-cave-bg-primary text-sm font-medium"
+                              >
+                                {updateDealAmount.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Save'}
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  setEditingDealAmount(null)
+                                  setDealAmountValue('')
+                                }}
+                                className="px-3 py-2 text-cave-text-secondary text-sm"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                setEditingDealAmount(intro.id)
+                                setDealAmountValue(intro.deal_amount?.toString() || '')
+                              }}
+                              className="flex items-center gap-2 px-3 py-2 rounded-lg bg-cave-bg-primary text-cave-text-secondary hover:text-cave-text-primary"
+                            >
+                              <PoundSterling className="w-4 h-4" />
+                              <span>{formatCurrency(intro.deal_amount)}</span>
+                            </button>
+                          )}
                         </div>
                         
                         {/* Info */}
