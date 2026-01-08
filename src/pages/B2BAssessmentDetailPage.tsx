@@ -10,12 +10,14 @@ import {
   Plus,
   Loader2,
   Trash2,
-  Save
+  Save,
+  PoundSterling
 } from 'lucide-react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { usePartners } from '../hooks/useB2B'
 import { cn } from '../lib/utils'
+
 
 interface Assessment {
   id: string
@@ -35,6 +37,7 @@ interface Assessment {
     partner_id: string
     status: string
     intro_date: string
+    deal_amount: number | null
     partners: {
       name: string
       slug: string
@@ -44,9 +47,8 @@ interface Assessment {
 
 const INTRO_STATUS_OPTIONS = [
   { value: 'intro_made', label: 'Intro Made' },
-  { value: 'scheduled', label: 'Scheduled' },
-  { value: 'member_declined', label: 'Member Declined' },
-  { value: 'na', label: 'N/A' }
+  { value: 'closed', label: 'Closed' },
+  { value: 'lost', label: 'Lost' }
 ]
 
 export function B2BAssessmentDetailPage() {
@@ -60,6 +62,8 @@ export function B2BAssessmentDetailPage() {
   const [selectedNewPartners, setSelectedNewPartners] = useState<string[]>([])
   const [newIntroStatus, setNewIntroStatus] = useState<string>('intro_made')
   const [showAddIntro, setShowAddIntro] = useState(false)
+  const [editingDealAmount, setEditingDealAmount] = useState<string | null>(null)
+  const [dealAmountValue, setDealAmountValue] = useState<string>('')
   
   // Fetch assessment with intros
   const { data: assessment, isLoading } = useQuery({
@@ -75,6 +79,7 @@ export function B2BAssessmentDetailPage() {
             partner_id,
             status,
             intro_date,
+            deal_amount,
             partners (name, slug)
           )
         `)
@@ -118,7 +123,6 @@ export function B2BAssessmentDetailPage() {
         partner_id: partnerId,
         status: status,
         intro_date: new Date().toISOString(),
-        // Only set next_followup_at if status is intro_made (trigger handles this but let's be explicit)
         next_followup_at: status === 'intro_made' 
           ? new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString() 
           : null
@@ -148,10 +152,12 @@ export function B2BAssessmentDetailPage() {
       // If changing to intro_made, set next followup to 3 days from now
       if (status === 'intro_made') {
         updateData.next_followup_at = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString()
-        updateData.intro_date = new Date().toISOString() // Reset intro date
+        updateData.intro_date = new Date().toISOString()
+        updateData.closed_at = null
       } else {
-        // Other statuses don't need followups
+        // closed or lost - stop all reminders
         updateData.next_followup_at = null
+        updateData.closed_at = new Date().toISOString()
       }
       
       const { error } = await supabase
@@ -165,6 +171,24 @@ export function B2BAssessmentDetailPage() {
       queryClient.invalidateQueries({ queryKey: ['b2b-assessment-detail', assessmentId] })
       queryClient.invalidateQueries({ queryKey: ['b2b-intros'] })
       queryClient.invalidateQueries({ queryKey: ['b2b-stats'] })
+    }
+  })
+  
+  // Update deal amount mutation
+  const updateDealAmount = useMutation({
+    mutationFn: async ({ introId, amount }: { introId: string, amount: number | null }) => {
+      const { error } = await supabase
+        .from('b2b_intros')
+        .update({ deal_amount: amount })
+        .eq('id', introId)
+      
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['b2b-assessment-detail', assessmentId] })
+      queryClient.invalidateQueries({ queryKey: ['b2b-intros'] })
+      setEditingDealAmount(null)
+      setDealAmountValue('')
     }
   })
   
@@ -203,6 +227,11 @@ export function B2BAssessmentDetailPage() {
     )
   }
   
+  const handleSaveDealAmount = (introId: string) => {
+    const amount = dealAmountValue ? parseFloat(dealAmountValue) : null
+    updateDealAmount.mutate({ introId, amount })
+  }
+  
   const formatDate = (dateStr: string) => {
     return new Date(dateStr).toLocaleDateString('en-GB', {
       day: 'numeric',
@@ -211,6 +240,16 @@ export function B2BAssessmentDetailPage() {
       hour: '2-digit',
       minute: '2-digit'
     })
+  }
+  
+  const formatCurrency = (amount: number | null) => {
+    if (amount === null) return '—'
+    return new Intl.NumberFormat('en-GB', {
+      style: 'currency',
+      currency: 'GBP',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0
+    }).format(amount)
   }
   
   // Get partners that don't already have intros
@@ -404,7 +443,7 @@ export function B2BAssessmentDetailPage() {
                   </div>
                   
                   {/* Status Selection */}
-                  <div>
+                  <div className="mb-3">
                     <label className="block text-xs text-cave-text-muted mb-2">Status</label>
                     <div className="flex flex-wrap gap-2">
                       {INTRO_STATUS_OPTIONS.map((option) => (
@@ -415,13 +454,11 @@ export function B2BAssessmentDetailPage() {
                           className={cn(
                             "px-3 py-1.5 rounded-lg text-xs font-medium transition-colors",
                             intro.status === option.value
-                              ? option.value === 'connected' || option.value === 'closed_won'
+                              ? option.value === 'closed'
                                 ? "bg-cave-status-success/20 text-cave-status-success ring-1 ring-cave-status-success"
                                 : option.value === 'lost'
                                   ? "bg-cave-status-error/20 text-cave-status-error ring-1 ring-cave-status-error"
-                                  : option.value === 'member_declined'
-                                    ? "bg-cave-bg-primary text-cave-text-muted ring-1 ring-cave-text-muted"
-                                    : "bg-cave-gold/20 text-cave-gold ring-1 ring-cave-gold"
+                                  : "bg-cave-gold/20 text-cave-gold ring-1 ring-cave-gold"
                               : "bg-cave-bg-primary text-cave-text-secondary hover:text-cave-text-primary",
                             "disabled:opacity-50"
                           )}
@@ -430,6 +467,52 @@ export function B2BAssessmentDetailPage() {
                         </button>
                       ))}
                     </div>
+                  </div>
+                  
+                  {/* Deal Amount */}
+                  <div>
+                    <label className="block text-xs text-cave-text-muted mb-2">Deal Amount</label>
+                    {editingDealAmount === intro.id ? (
+                      <div className="flex items-center gap-2">
+                        <div className="relative flex-1">
+                          <PoundSterling className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-cave-text-muted" />
+                          <input
+                            type="number"
+                            value={dealAmountValue}
+                            onChange={(e) => setDealAmountValue(e.target.value)}
+                            placeholder="0"
+                            className="w-full pl-9 pr-4 py-2 bg-cave-bg-primary border border-cave-border rounded-lg text-cave-text-primary focus:outline-none focus:border-cave-gold"
+                          />
+                        </div>
+                        <button
+                          onClick={() => handleSaveDealAmount(intro.id)}
+                          disabled={updateDealAmount.isPending}
+                          className="px-3 py-2 rounded-lg bg-cave-gold text-cave-bg-primary text-sm font-medium"
+                        >
+                          {updateDealAmount.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Save'}
+                        </button>
+                        <button
+                          onClick={() => {
+                            setEditingDealAmount(null)
+                            setDealAmountValue('')
+                          }}
+                          className="px-3 py-2 text-cave-text-secondary text-sm"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => {
+                          setEditingDealAmount(intro.id)
+                          setDealAmountValue(intro.deal_amount?.toString() || '')
+                        }}
+                        className="flex items-center gap-2 text-cave-text-secondary hover:text-cave-text-primary"
+                      >
+                        <PoundSterling className="w-4 h-4" />
+                        <span>{formatCurrency(intro.deal_amount)}</span>
+                      </button>
+                    )}
                   </div>
                 </div>
               ))}

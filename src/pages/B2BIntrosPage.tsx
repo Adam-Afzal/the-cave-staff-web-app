@@ -16,11 +16,10 @@ import {
 import { useIntros, useUpdateIntro, useB2BStats, useAssessments } from '../hooks/useB2B'
 import { cn } from '../lib/utils'
 
-const STATUS_CONFIG = {
-  intro_made: { label: 'Intro Made', color: 'text-blue-400', bg: 'bg-blue-400/10' },
-  scheduled: { label: 'Scheduled', color: 'text-cave-gold', bg: 'bg-cave-gold/10' },
-  member_declined: { label: 'Declined', color: 'text-cave-text-muted', bg: 'bg-cave-bg-elevated' },
-  na: { label: 'N/A', color: 'text-cave-text-muted', bg: 'bg-cave-bg-elevated' }
+const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
+  intro_made: { label: 'Intro Made', color: 'text-cave-gold', bg: 'bg-cave-gold/10' },
+  closed: { label: 'Closed', color: 'text-cave-status-success', bg: 'bg-cave-status-success/10' },
+  lost: { label: 'Lost', color: 'text-cave-status-error', bg: 'bg-cave-status-error/10' }
 }
 
 type StatusFilter = 'all' | 'active' | 'pending_followup' | 'closed'
@@ -44,8 +43,8 @@ export function B2BIntrosPage() {
   // Filter intros based on status
   const filteredIntros = intros?.filter(intro => {
     if (statusFilter === 'all') return true
-    if (statusFilter === 'active') return ['intro_made', 'scheduled'].includes(intro.status)
-    if (statusFilter === 'closed') return ['member_declined', 'na'].includes(intro.status)
+    if (statusFilter === 'active') return intro.status === 'intro_made'
+    if (statusFilter === 'closed') return ['closed', 'lost'].includes(intro.status)
     return true
   })
   

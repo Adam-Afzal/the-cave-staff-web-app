@@ -307,9 +307,8 @@ export function B2BAssessmentPage() {
                 >
                   <option value="">Select status...</option>
                   <option value="intro_made">Intro Made</option>
-                  <option value="scheduled">Scheduled</option>
-                  <option value="member_declined">Member Declined</option>
-                  <option value="na">N/A</option>
+                  <option value="closed">Closed</option>
+                  <option value="lost">Lost</option>
                 </select>
               </div>
             </div>

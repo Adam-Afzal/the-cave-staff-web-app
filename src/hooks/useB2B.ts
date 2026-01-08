@@ -54,11 +54,12 @@ export interface B2BIntro {
   member_display_id?: string
   partner_name?: string
   partner_slug?: string
-  status: 'intro_made' | 'scheduled' | 'member_declined' | 'na'
+  status: 'intro_made' | 'closed' | 'lost'
   intro_date: string
   last_followup_at: string | null
   next_followup_at: string | null
   closed_at: string | null
+  deal_amount: number | null
   notes: string | null
 }
 
@@ -298,15 +299,6 @@ export function useUpdateIntro() {
   
   return useMutation({
     mutationFn: async ({ introId, status, notes }: { introId: string; status: string; notes?: string }) => {
-      // Get current intro to calculate next followup
-      const {  error: fetchError } = await supabase
-        .from('b2b_intros')
-        .select('intro_date')
-        .eq('id', introId)
-        .single()
-      
-      if (fetchError) throw fetchError
-      
       const updateData: Record<string, any> = {
         status,
         last_followup_at: new Date().toISOString()
@@ -320,9 +312,11 @@ export function useUpdateIntro() {
       if (status === 'intro_made') {
         updateData.next_followup_at = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString()
         updateData.intro_date = new Date().toISOString()
+        updateData.closed_at = null
       } else {
-        // Other statuses don't need followups
+        // closed or lost - stop all reminders
         updateData.next_followup_at = null
+        updateData.closed_at = new Date().toISOString()
       }
       
       const { data, error } = await supabase
