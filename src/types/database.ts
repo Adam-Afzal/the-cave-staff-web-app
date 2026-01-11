@@ -41,7 +41,8 @@ export interface Member {
   value_posted: boolean
   notes: string | null
   created_at: string
-  updated_at: string
+  updated_at: string,
+  member_id: string
 }
 
 export interface MemberTelegram {

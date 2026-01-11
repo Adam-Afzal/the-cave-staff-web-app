@@ -16,6 +16,7 @@ import { B2BAssessmentPage } from './pages/B2BAssessmentPage'
 import { B2BAssessmentDetailPage } from './pages/B2BAssessmentDetailPage'
 import { B2BIntrosPage } from './pages/B2BIntrosPage'
 import { ScheduledCallsPage } from './pages/ScheduledCallsPage'
+import { MemberProfilePage } from './pages/MemberProfilePage'
 import { useCurrentStaffProfile } from './hooks/useStaffProfile'
 import { supabase } from './lib/supabase'
 
@@ -111,6 +112,7 @@ export default function App() {
           }>
             <Route path="/" element={<DashboardPage />} />
             <Route path="/members" element={<MembersPage />} />
+            <Route path="/members/:memberId" element={<MemberProfilePage />} />
             <Route path="/concierge" element={<ConciergePage/>} />
             <Route path="/calls" element={<ClientCallsPage />} />
             <Route path="/events" element={<EventsPage />} />

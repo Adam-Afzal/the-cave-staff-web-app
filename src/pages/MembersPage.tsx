@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { useNavigate } from 'react-router-dom'
 import { Header } from '../components/layout/Header'
 import { Search, Filter, Plus, MoreHorizontal, Mail, Phone, Loader2 } from 'lucide-react'
 import { cn, getInitials } from '../lib/utils'
@@ -31,6 +32,7 @@ function HealthScoreBadge({ score }: { score: number }) {
 }
 
 export function MembersPage() {
+  const navigate = useNavigate()
   const [searchQuery, setSearchQuery] = useState('')
   const [activeFilter, setActiveFilter] = useState('All')
   const [selectedMember, setSelectedMember] = useState<Member | null>(null)
@@ -50,21 +52,26 @@ export function MembersPage() {
 
   const filteredMembers = members.filter(member => {
     const matchesSearch = 
-      member.first_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      member.last_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      member.email.toLowerCase().includes(searchQuery.toLowerCase())
+      member.first_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      member.last_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      member.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      member.member_id?.toLowerCase().includes(searchQuery.toLowerCase())
     
     const matchesFilter = 
       activeFilter === 'All' || 
-      member.status.toLowerCase() === activeFilter.toLowerCase()
+      member.status?.toLowerCase() === activeFilter.toLowerCase()
 
     return matchesSearch && matchesFilter
   })
 
+  const handleRowClick = (member: Member) => {
+    navigate(`/members/${member.id}`)
+  }
+
   if (error) {
     return (
       <div className="p-6">
-        <div className="text-cave-status-error">Error loading members: {error.message}</div>
+        <div className="text-cave-status-error">Error loading members: {(error as Error).message}</div>
       </div>
     )
   }
@@ -134,6 +141,7 @@ export function MembersPage() {
                   <thead>
                     <tr>
                       <th>Member</th>
+                      <th>Member ID</th>
                       <th>Business Arena</th>
                       <th>Location</th>
                       <th>Health Score</th>
@@ -144,7 +152,7 @@ export function MembersPage() {
                   <tbody>
                     {filteredMembers.length === 0 ? (
                       <tr>
-                        <td colSpan={6} className="text-center text-cave-text-muted py-8">
+                        <td colSpan={7} className="text-center text-cave-text-muted py-8">
                           No members found
                         </td>
                       </tr>
@@ -152,7 +160,7 @@ export function MembersPage() {
                       filteredMembers.map((member) => (
                         <tr 
                           key={member.id}
-                          onClick={() => setSelectedMember(member)}
+                          onClick={() => handleRowClick(member)}
                           className={cn(
                             "cursor-pointer",
                             selectedMember?.id === member.id && "bg-cave-gold/5"
@@ -176,6 +184,13 @@ export function MembersPage() {
                             </div>
                           </td>
                           <td>
+                            {member.member_id ? (
+                              <span className="font-mono text-sm text-cave-gold">{member.member_id}</span>
+                            ) : (
+                              <span className="text-cave-text-muted">-</span>
+                            )}
+                          </td>
+                          <td>
                             {member.business_arena ? (
                               <span className="badge-info">{member.business_arena}</span>
                             ) : (
@@ -191,7 +206,7 @@ export function MembersPage() {
                             </span>
                           </td>
                           <td>
-                            <HealthScoreBadge score={member.health_score} />
+                            <HealthScoreBadge score={member.health_score || 0} />
                           </td>
                           <td>
                             <span className={cn(
@@ -203,7 +218,13 @@ export function MembersPage() {
                             </span>
                           </td>
                           <td>
-                            <button className="p-1 rounded hover:bg-cave-bg-elevated">
+                            <button 
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                setSelectedMember(member)
+                              }}
+                              className="p-1 rounded hover:bg-cave-bg-elevated"
+                            >
                               <MoreHorizontal className="w-4 h-4 text-cave-text-muted" />
                             </button>
                           </td>
@@ -231,6 +252,11 @@ export function MembersPage() {
                 <p className="text-sm text-cave-text-secondary">
                   {selectedMember.business_arena || 'No business arena'} • {selectedMember.city || 'Unknown'}
                 </p>
+                {selectedMember.member_id && (
+                  <p className="text-xs font-mono text-cave-gold mt-1">
+                    {selectedMember.member_id}
+                  </p>
+                )}
                 {selectedMember.wealth_tier && (
                   <span className={cn(
                     "mt-2",
@@ -256,11 +282,16 @@ export function MembersPage() {
 
               <div className="pt-4 border-t border-cave-border">
                 <p className="text-xs text-cave-text-muted mb-2">Health Score</p>
-                <HealthScoreBadge score={selectedMember.health_score} />
+                <HealthScoreBadge score={selectedMember.health_score || 0} />
               </div>
 
               <div className="flex gap-2 mt-4">
-                <button className="btn-primary flex-1">View Profile</button>
+                <button 
+                  onClick={() => navigate(`/members/${selectedMember.id}`)}
+                  className="btn-primary flex-1"
+                >
+                  View Profile
+                </button>
                 <button className="btn-secondary flex-1">Message</button>
               </div>
             </div>
