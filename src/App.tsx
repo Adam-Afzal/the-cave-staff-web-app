@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Layout } from './components/layout'
-import { LoginPage, DashboardPage, MembersPage, ConciergePage } from './pages'
+import { LoginPage, DashboardPage, ConciergePage } from './pages'
 import { ClientCallsPage } from './pages/ClientCallsPage'
 import { EventsPage } from './pages/EventsPage'
 import { EventSignupPage } from './pages/EventSignUpPage'
@@ -17,6 +17,7 @@ import { B2BAssessmentDetailPage } from './pages/B2BAssessmentDetailPage'
 import { B2BIntrosPage } from './pages/B2BIntrosPage'
 import { ScheduledCallsPage } from './pages/ScheduledCallsPage'
 import { MemberProfilePage } from './pages/MemberProfilePage'
+import { EntitiesPage } from './pages/EntitiesPage'
 import { useCurrentStaffProfile } from './hooks/useStaffProfile'
 import { supabase } from './lib/supabase'
 
@@ -111,8 +112,9 @@ export default function App() {
             </ProtectedRoute>
           }>
             <Route path="/" element={<DashboardPage />} />
-            <Route path="/members" element={<MembersPage />} />
+            <Route path="/members" element={<Navigate to="/entities" replace />} />
             <Route path="/members/:memberId" element={<MemberProfilePage />} />
+            <Route path="/entities" element={<EntitiesPage />} />
             <Route path="/concierge" element={<ConciergePage/>} />
             <Route path="/calls" element={<ClientCallsPage />} />
             <Route path="/events" element={<EventsPage />} />

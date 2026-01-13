@@ -9,7 +9,8 @@ import {
   XCircle,
   Loader2,
   ArrowRight,
-  Building2
+  Building2,
+  Briefcase
 } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
@@ -24,20 +25,42 @@ interface Member {
   member_id: string | null
 }
 
+interface ThirdParty {
+  id: string
+  name: string
+  company: string | null
+  industry: string | null
+}
+
 export function B2BAssessmentPage() {
   const navigate = useNavigate()
   const { data: partners } = usePartners()
   const createAssessment = useCreateAssessment()
+  
+  // Fetch third parties
+  const { data: thirdParties } = useQuery({
+    queryKey: ['third-parties'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('third_parties')
+        .select('id, name, company, industry')
+        .order('name')
+      if (error) throw error
+      return data as ThirdParty[]
+    }
+  })
   
   // Form state
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedMember, setSelectedMember] = useState<Member | null>(null)
   const [isB2BFit, setIsB2BFit] = useState<boolean | null>(null)
   const [selectedPartners, setSelectedPartners] = useState<string[]>([])
+  const [selectedThirdParties, setSelectedThirdParties] = useState<string[]>([])
   const [introStatus, setIntroStatus] = useState<string>('')
   const [noFitReason, setNoFitReason] = useState<string>('')
   const [notes, setNotes] = useState('')
   const [submitSuccess, setSubmitSuccess] = useState(false)
+  const [thirdPartySearch, setThirdPartySearch] = useState('')
   
   // Search members
   const { data: searchResults, isLoading: searching } = useQuery({
@@ -70,10 +93,26 @@ export function B2BAssessmentPage() {
     )
   }
   
+  const handleThirdPartyToggle = (thirdPartyId: string) => {
+    setSelectedThirdParties(prev => 
+      prev.includes(thirdPartyId)
+        ? prev.filter(id => id !== thirdPartyId)
+        : [...prev, thirdPartyId]
+    )
+  }
+  
+  // Filter third parties by search
+  const filteredThirdParties = thirdParties?.filter(tp => 
+    !thirdPartySearch || 
+    tp.name.toLowerCase().includes(thirdPartySearch.toLowerCase()) ||
+    tp.company?.toLowerCase().includes(thirdPartySearch.toLowerCase())
+  ) || []
+  
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
     if (!selectedMember || isB2BFit === null) return
+    
     
     try {
       await createAssessment.mutateAsync({
@@ -81,6 +120,7 @@ export function B2BAssessmentPage() {
         is_b2b_fit: isB2BFit,
         no_fit_reason: !isB2BFit ? noFitReason : undefined,
         partner_ids: isB2BFit && introStatus === 'intro_made' ? selectedPartners : undefined,
+        third_party_ids: isB2BFit && introStatus === 'intro_made' ? selectedThirdParties : undefined,
         intro_status: isB2BFit ? introStatus : undefined,
         notes: notes || undefined
       })
@@ -97,6 +137,8 @@ export function B2BAssessmentPage() {
     }
   }
   
+  const totalConnections = selectedPartners.length + selectedThirdParties.length
+  
   const memberName = selectedMember 
     ? `${selectedMember.first_name || ''} ${selectedMember.last_name || ''}`.trim() || selectedMember.email
     : ''
@@ -109,8 +151,8 @@ export function B2BAssessmentPage() {
             <CheckCircle className="w-16 h-16 text-cave-status-success mx-auto mb-4" />
             <h2 className="text-2xl font-bold text-cave-text-primary mb-2">Assessment Logged!</h2>
             <p className="text-cave-text-secondary mb-4">
-              {isB2BFit && selectedPartners.length > 0 
-                ? `Created ${selectedPartners.length} intro(s) for ${memberName}`
+              {isB2BFit && totalConnections > 0 
+                ? `Created ${totalConnections} intro(s) for ${memberName}`
                 : `Assessment saved for ${memberName}`
               }
             </p>
@@ -262,37 +304,125 @@ export function B2BAssessmentPage() {
             </div>
           )}
           
-          {/* Step 3a: If Yes - Partner Selection */}
+          {/* Step 3a: If Yes - Partner & Third Party Selection */}
           {isB2BFit === true && (
             <div className="bg-cave-bg-secondary rounded-xl border border-cave-border p-6">
               <h3 className="text-lg font-semibold text-cave-text-primary mb-4 flex items-center gap-2">
                 <span className="w-6 h-6 rounded-full bg-cave-gold text-cave-bg-primary text-sm font-bold flex items-center justify-center">3</span>
-                Select Partner(s)
+                Select Connection(s)
               </h3>
               
-              <div className="grid grid-cols-2 gap-3 mb-6">
-                {partners?.filter(p => p.slug !== 'other').map((partner) => (
-                  <button
-                    key={partner.id}
-                    type="button"
-                    onClick={() => handlePartnerToggle(partner.id)}
-                    className={cn(
-                      "p-3 rounded-lg border transition-all flex items-center gap-3",
-                      selectedPartners.includes(partner.id)
-                        ? "border-cave-gold bg-cave-gold/10"
-                        : "border-cave-border hover:border-cave-gold/50"
-                    )}
-                  >
-                    <Building2 className={cn(
-                      "w-5 h-5",
-                      selectedPartners.includes(partner.id) ? "text-cave-gold" : "text-cave-text-muted"
-                    )} />
-                    <span className={cn(
-                      "font-medium",
-                      selectedPartners.includes(partner.id) ? "text-cave-gold" : "text-cave-text-secondary"
-                    )}>{partner.name}</span>
-                  </button>
-                ))}
+              {/* Partners Section */}
+              <div className="mb-6">
+                <h4 className="text-sm font-medium text-cave-text-secondary mb-3 flex items-center gap-2">
+                  <Building2 className="w-4 h-4" />
+                  B2B Partners
+                </h4>
+                <div className="grid grid-cols-2 gap-3">
+                  {partners?.filter(p => p.slug !== 'other').map((partner) => (
+                    <button
+                      key={partner.id}
+                      type="button"
+                      onClick={() => handlePartnerToggle(partner.id)}
+                      className={cn(
+                        "p-3 rounded-lg border transition-all flex items-center gap-3",
+                        selectedPartners.includes(partner.id)
+                          ? "border-cave-gold bg-cave-gold/10"
+                          : "border-cave-border hover:border-cave-gold/50"
+                      )}
+                    >
+                      <Building2 className={cn(
+                        "w-5 h-5",
+                        selectedPartners.includes(partner.id) ? "text-cave-gold" : "text-cave-text-muted"
+                      )} />
+                      <span className={cn(
+                        "font-medium",
+                        selectedPartners.includes(partner.id) ? "text-cave-gold" : "text-cave-text-secondary"
+                      )}>{partner.name}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+              
+              {/* Third Parties Section */}
+              <div className="mb-6">
+                <h4 className="text-sm font-medium text-cave-text-secondary mb-3 flex items-center gap-2">
+                  <Briefcase className="w-4 h-4" />
+                  Third Parties
+                </h4>
+                
+                {/* Search third parties */}
+                <div className="relative mb-3">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-cave-text-muted" />
+                  <input
+                    type="text"
+                    value={thirdPartySearch}
+                    onChange={(e) => setThirdPartySearch(e.target.value)}
+                    placeholder="Search third parties..."
+                    className="w-full pl-9 pr-4 py-2 bg-cave-bg-elevated border border-cave-border rounded-lg text-sm text-cave-text-primary placeholder:text-cave-text-muted focus:outline-none focus:border-cave-gold"
+                  />
+                </div>
+                
+                {/* Selected third parties */}
+                {selectedThirdParties.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mb-3">
+                    {selectedThirdParties.map(tpId => {
+                      const tp = thirdParties?.find(t => t.id === tpId)
+                      if (!tp) return null
+                      return (
+                        <span 
+                          key={tpId}
+                          className="inline-flex items-center gap-1 px-2 py-1 bg-cave-gold/10 text-cave-gold rounded-lg text-sm"
+                        >
+                          {tp.name}
+                          <button
+                            type="button"
+                            onClick={() => handleThirdPartyToggle(tpId)}
+                            className="hover:text-cave-gold/70"
+                          >
+                            <XCircle className="w-4 h-4" />
+                          </button>
+                        </span>
+                      )
+                    })}
+                  </div>
+                )}
+                
+                {/* Third parties list */}
+                <div className="max-h-48 overflow-y-auto border border-cave-border rounded-lg">
+                  {filteredThirdParties.length === 0 ? (
+                    <div className="p-4 text-center text-cave-text-muted text-sm">
+                      {thirdParties?.length === 0 ? 'No third parties yet' : 'No matching third parties'}
+                    </div>
+                  ) : (
+                    filteredThirdParties.slice(0, 20).map((tp) => (
+                      <button
+                        key={tp.id}
+                        type="button"
+                        onClick={() => handleThirdPartyToggle(tp.id)}
+                        className={cn(
+                          "w-full px-3 py-2 text-left flex items-center justify-between hover:bg-cave-bg-elevated transition-colors border-b border-cave-border last:border-b-0",
+                          selectedThirdParties.includes(tp.id) && "bg-cave-gold/5"
+                        )}
+                      >
+                        <div>
+                          <p className={cn(
+                            "font-medium text-sm",
+                            selectedThirdParties.includes(tp.id) ? "text-cave-gold" : "text-cave-text-primary"
+                          )}>{tp.name}</p>
+                          {(tp.company || tp.industry) && (
+                            <p className="text-xs text-cave-text-muted">
+                              {[tp.company, tp.industry].filter(Boolean).join(' • ')}
+                            </p>
+                          )}
+                        </div>
+                        {selectedThirdParties.includes(tp.id) && (
+                          <CheckCircle className="w-4 h-4 text-cave-gold" />
+                        )}
+                      </button>
+                    ))
+                  )}
+                </div>
               </div>
               
               {/* Intro Status */}
@@ -311,6 +441,17 @@ export function B2BAssessmentPage() {
                   <option value="lost">Lost</option>
                 </select>
               </div>
+              
+              {/* Selection summary */}
+              {totalConnections > 0 && (
+                <div className="mt-4 p-3 bg-cave-bg-elevated rounded-lg">
+                  <p className="text-sm text-cave-text-secondary">
+                    Selected: <span className="text-cave-gold font-medium">{totalConnections} connection(s)</span>
+                    {selectedPartners.length > 0 && ` (${selectedPartners.length} partner${selectedPartners.length > 1 ? 's' : ''})`}
+                    {selectedThirdParties.length > 0 && ` (${selectedThirdParties.length} third part${selectedThirdParties.length > 1 ? 'ies' : 'y'})`}
+                  </p>
+                </div>
+              )}
             </div>
           )}
           
@@ -357,7 +498,7 @@ export function B2BAssessmentPage() {
           {isB2BFit !== null && (
             <button
               type="submit"
-              disabled={createAssessment.isPending || (isB2BFit && selectedPartners.length > 0 && !introStatus)}
+              disabled={createAssessment.isPending || (isB2BFit && totalConnections > 0 && !introStatus)}
               className={cn(
                 "w-full py-4 rounded-xl font-semibold transition-colors flex items-center justify-center gap-2",
                 "bg-cave-gold text-cave-bg-primary hover:bg-cave-gold/90",

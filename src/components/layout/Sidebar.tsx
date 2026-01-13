@@ -19,7 +19,7 @@ import caveLogo from '../../assets/cavelogo.jpg'
 
 const navigation = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard },
-  { name: 'Members', href: '/members', icon: Users },
+  { name: 'Entities', href: '/entities', icon: Users },
   { name: 'Concierge', href: '/concierge', icon: Link2 },
   { name: 'Client Calls', href: '/calls', icon: Phone },
   { name: 'Events', href: '/events', icon: Calendar },
@@ -30,7 +30,7 @@ const navigation = [
 ]
 
 const b2bNavigation = [
-  { name: 'Onboarding Calls', href: '/b2b/calls', icon: Phone },
+  { name: 'Scheduled Calls', href: '/b2b/calls', icon: Phone },
   { name: 'Log Assessment', href: '/b2b/assess', icon: ClipboardCheck },
   { name: 'Intros', href: '/b2b/intros', icon: Handshake },
 ]

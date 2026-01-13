@@ -20,7 +20,6 @@ import {
 import { supabase } from '../lib/supabase'
 import { cn, getInitials } from '../lib/utils'
 
-
 function HealthScoreBadge({ score }: { score: number }) {
   return (
     <div className="flex items-center gap-3">
@@ -248,11 +247,19 @@ export function MemberProfilePage() {
       <div className="bg-cave-bg-secondary rounded-xl border border-cave-border p-6 mb-6">
         <div className="flex items-start gap-6">
           {/* Avatar */}
-          <div className="w-24 h-24 rounded-full bg-cave-gold/20 flex items-center justify-center flex-shrink-0">
-            <span className="text-cave-gold font-bold text-3xl">
-              {getInitials(member.first_name, member.last_name)}
-            </span>
-          </div>
+          {member.member_telegram?.avatar_url ? (
+            <img 
+              src={member.member_telegram.avatar_url} 
+              alt={`${member.first_name} ${member.last_name}`}
+              className="w-24 h-24 rounded-full object-cover flex-shrink-0"
+            />
+          ) : (
+            <div className="w-24 h-24 rounded-full bg-cave-gold/20 flex items-center justify-center flex-shrink-0">
+              <span className="text-cave-gold font-bold text-3xl">
+                {getInitials(member.first_name, member.last_name)}
+              </span>
+            </div>
+          )}
 
           {/* Info */}
           <div className="flex-1">

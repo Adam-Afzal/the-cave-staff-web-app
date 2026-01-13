@@ -49,11 +49,14 @@ export interface B2BIntro {
   id: string
   assessment_id: string
   member_id: string
-  partner_id: string
+  partner_id: string | null
+  third_party_id: string | null
   member_name?: string
   member_display_id?: string
-  partner_name?: string
-  partner_slug?: string
+  partner_name?: string | null
+  partner_slug?: string | null
+  third_party_name?: string | null
+  third_party_company?: string | null
   status: 'intro_made' | 'closed' | 'lost'
   intro_date: string
   last_followup_at: string | null
@@ -77,6 +80,7 @@ export interface AssessmentCreateData {
   is_b2b_fit: boolean
   no_fit_reason?: string
   partner_ids?: string[]
+  third_party_ids?: string[]
   intro_status?: string
   notes?: string
 }
@@ -258,7 +262,7 @@ export function useIntros(options?: { status?: string; needs_followup?: boolean 
     queryFn: async () => {
       let query = supabase
         .from('b2b_intros')
-        .select('*, members(first_name, last_name, member_id), partners(name, slug)')
+        .select('*, members(first_name, last_name, member_id), partners(name, slug), third_parties(name, company)')
         .order('intro_date', { ascending: false })
         .limit(50)
       
@@ -280,14 +284,18 @@ export function useIntros(options?: { status?: string; needs_followup?: boolean 
       return data.map((row: any) => {
         const member = row.members || {}
         const partner = row.partners || {}
+        const thirdParty = row.third_parties || {}
         return {
           ...row,
           members: undefined,
           partners: undefined,
+          third_parties: undefined,
           member_name: `${member.first_name || ''} ${member.last_name || ''}`.trim() || null,
           member_display_id: member.member_id || null,
           partner_name: partner.name || null,
-          partner_slug: partner.slug || null
+          partner_slug: partner.slug || null,
+          third_party_name: thirdParty.name || null,
+          third_party_company: thirdParty.company || null
         }
       }) as B2BIntro[]
     }
