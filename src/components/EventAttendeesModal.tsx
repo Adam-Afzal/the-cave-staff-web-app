@@ -1,10 +1,10 @@
 import { useState, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { X, Search, UserPlus, Check, Clock, XCircle, UserCheck, MoreVertical, Trash2, User } from 'lucide-react'
+import { X, Search, UserPlus, Check, Clock, UserCheck, MoreVertical, Trash2, User } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { cn } from '../lib/utils'
 
-type RsvpStatus = 'INVITED' | 'CONFIRMED' | 'DECLINED' | 'WAITLIST'
+type RsvpStatus = 'CONFIRMED' | 'WAITLIST'
 
 interface Event {
   id: string
@@ -46,9 +46,7 @@ interface EventAttendeesModalProps {
 }
 
 const statusConfig: Record<RsvpStatus, { label: string; color: string; icon: typeof Check }> = {
-  INVITED: { label: 'Invited', color: 'bg-cave-status-info/20 text-cave-status-info', icon: Clock },
   CONFIRMED: { label: 'Confirmed', color: 'bg-cave-status-success/20 text-cave-status-success', icon: Check },
-  DECLINED: { label: 'Declined', color: 'bg-cave-status-error/20 text-cave-status-error', icon: XCircle },
   WAITLIST: { label: 'Waitlist', color: 'bg-cave-status-warning/20 text-cave-status-warning', icon: Clock },
 }
 
@@ -433,7 +431,7 @@ export function EventAttendeesModal({ event, onClose }: EventAttendeesModalProps
             className="fixed w-40 bg-cave-bg-elevated border border-cave-border rounded-lg shadow-lg z-[70] py-1"
             style={{ top: menuPosition.top, left: menuPosition.left }}
           >
-            {(['INVITED', 'CONFIRMED', 'DECLINED', 'WAITLIST'] as RsvpStatus[]).map(status => {
+            {(['CONFIRMED', 'WAITLIST'] as RsvpStatus[]).map(status => {
               const attendee = attendees?.find(a => a.id === openMenuId)
               return (
                 <button

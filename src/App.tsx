@@ -20,6 +20,9 @@ import { MemberProfilePage } from './pages/MemberProfilePage'
 import { EntitiesPage } from './pages/EntitiesPage'
 import { useCurrentStaffProfile } from './hooks/useStaffProfile'
 import { supabase } from './lib/supabase'
+import { OnboardingFormsPage } from './pages/OnboardingFormsPage'
+import { OnboardingFormBuilderPage } from './pages/OnboardingFormBuilderPage'
+import { OnboardingFormPage } from './pages/OnboardingFormPage'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -95,6 +98,7 @@ export default function App() {
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/events/:slug" element={<EventSignupPage />} />
+          <Route path="/onboarding/:slug" element={<OnboardingFormPage />} />
           
           {/* Profile Setup - No layout, standalone page */}
           <Route path="/profile/setup" element={
@@ -126,6 +130,8 @@ export default function App() {
             <Route path="/b2b/assess/:assessmentId" element={<B2BAssessmentDetailPage />} />
             <Route path="/b2b/intros" element={<B2BIntrosPage />} />
             <Route path="/b2b/calls" element={<ScheduledCallsPage />} />
+            <Route path="/onboarding-forms" element={<OnboardingFormsPage />} />
+            <Route  path="/staff/onboarding-forms/:id/edit"  element={<OnboardingFormBuilderPage />} />
             <Route path="/analytics" element={<div className="p-6 text-cave-text-primary">Analytics - Coming Soon</div>} />
             <Route path="/settings" element={<div className="p-6 text-cave-text-primary">Settings - Coming Soon</div>} />
           </Route>

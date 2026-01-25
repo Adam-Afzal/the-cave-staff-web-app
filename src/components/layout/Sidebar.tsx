@@ -12,7 +12,9 @@ import {
   Flag,
   UserCog,
   Handshake,
-  ClipboardCheck
+  ClipboardCheck,
+  FileText, 
+  ClipboardList
 } from 'lucide-react'
 import { cn } from '../../lib/utils'
 import caveLogo from '../../assets/cavelogo.jpg'
@@ -21,6 +23,7 @@ const navigation = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard },
   { name: 'Entities', href: '/entities', icon: Users },
   { name: 'Concierge', href: '/concierge', icon: Link2 },
+  { name: 'Onboarding Forms',href: '/onboarding-forms', icon: FileText },
   { name: 'Client Calls', href: '/calls', icon: Phone },
   { name: 'Events', href: '/events', icon: Calendar },
   { name: 'Analytics', href: '/analytics', icon: BarChart3 },
