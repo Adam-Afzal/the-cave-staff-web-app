@@ -98,6 +98,7 @@ export default function App() {
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/events/:slug" element={<EventSignupPage />} />
+          <Route path="/events/:slug/guest/:memberId" element={<EventSignupPage />} />
           <Route path="/onboarding/:slug" element={<OnboardingFormPage />} />
           
           {/* Profile Setup - No layout, standalone page */}

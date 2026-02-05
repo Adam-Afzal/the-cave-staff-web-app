@@ -16,6 +16,7 @@ interface Attendee {
   id: string
   event_id: string
   member_id: string | null
+  invited_by_member_id: string | null
   guest_name: string | null
   guest_email: string | null
   rsvp_status: RsvpStatus
@@ -29,6 +30,11 @@ interface Attendee {
     last_name: string
     email: string
     profile_picture_url: string | null
+  } | null
+  inviting_member: {
+    id: string
+    first_name: string
+    last_name: string
   } | null
 }
 
@@ -68,7 +74,8 @@ export function EventAttendeesModal({ event, onClose }: EventAttendeesModalProps
         .from('event_attendees')
         .select(`
           *,
-          member:members(id, first_name, last_name, email, profile_picture_url)
+          member:members!member_id(id, first_name, last_name, email, profile_picture_url),
+          inviting_member:members!invited_by_member_id(id, first_name, last_name)
         `)
         .eq('event_id', event.id)
         .order('created_at', { ascending: false })
@@ -179,7 +186,8 @@ export function EventAttendeesModal({ event, onClose }: EventAttendeesModalProps
         email: attendee.member.email,
         initials: `${attendee.member.first_name[0]}${attendee.member.last_name[0]}`,
         profilePicture: attendee.member.profile_picture_url,
-        isGuest: false
+        isGuest: false,
+        hostName: null
       }
     }
     // Guest attendee
@@ -189,7 +197,10 @@ export function EventAttendeesModal({ event, onClose }: EventAttendeesModalProps
       email: attendee.guest_email || '',
       initials: nameParts.length >= 2 ? `${nameParts[0][0]}${nameParts[1][0]}` : nameParts[0][0] || 'G',
       profilePicture: null,
-      isGuest: true
+      isGuest: true,
+      hostName: attendee.inviting_member
+        ? `${attendee.inviting_member.first_name} ${attendee.inviting_member.last_name}`
+        : null
     }
   }
 
@@ -366,13 +377,18 @@ export function EventAttendeesModal({ event, onClose }: EventAttendeesModalProps
 
                     {/* Info */}
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-cave-text-primary font-medium">
                           {info.name}
                         </span>
                         {info.isGuest && (
                           <span className="px-1.5 py-0.5 rounded text-xs bg-cave-text-muted/20 text-cave-text-muted">
                             Guest
+                          </span>
+                        )}
+                        {info.hostName && (
+                          <span className="text-xs text-cave-text-muted">
+                            (of {info.hostName})
                           </span>
                         )}
                       </div>
