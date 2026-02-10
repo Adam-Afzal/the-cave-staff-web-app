@@ -13,8 +13,7 @@ import {
   UserCog,
   Handshake,
   ClipboardCheck,
-  FileText, 
-  ClipboardList
+  FileText
 } from 'lucide-react'
 import { cn } from '../../lib/utils'
 import caveLogo from '../../assets/cavelogo.jpg'

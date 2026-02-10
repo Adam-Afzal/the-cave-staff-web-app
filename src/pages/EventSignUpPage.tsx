@@ -144,7 +144,7 @@ export function EventSignupPage() {
   })
 
   // Fetch guest count for the registered member (after successful registration)
-  const { data: myGuestCount, refetch: refetchMyGuestCount } = useQuery({
+  const { data: myGuestCount, refetch: _refetchMyGuestCount } = useQuery({
     queryKey: ['my-guest-count', event?.id, registeredMemberId],
     queryFn: async () => {
       const { count, error } = await supabase
