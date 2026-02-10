@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import {
-  Users, Search, Plus, Edit2, Trash2, X, Loader2, Briefcase, Mail, Phone, MoreHorizontal
+  Users, Search, Plus, Edit2, Trash2, X, Loader2, Briefcase, Mail, Phone, MoreHorizontal, UserMinus, AlertTriangle
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { cn, getInitials } from '../lib/utils'
@@ -120,7 +120,54 @@ function ThirdPartyModal({ thirdParty, onClose, onSave }: { thirdParty: ThirdPar
   )
 }
 
+function OffboardConfirmModal({ member, onClose, onConfirm, isLoading }: { member: Member; onClose: () => void; onConfirm: () => void; isLoading: boolean }) {
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60]">
+      <div className="bg-cave-bg-secondary rounded-xl border border-cave-border w-full max-w-md mx-4">
+        <div className="p-6">
+          <div className="flex items-center justify-center w-12 h-12 rounded-full bg-cave-status-warning/20 mx-auto mb-4">
+            <AlertTriangle className="w-6 h-6 text-cave-status-warning" />
+          </div>
+          <h2 className="text-lg font-semibold text-cave-text-primary text-center mb-2">Offboard Member</h2>
+          <p className="text-cave-text-secondary text-center mb-4">
+            Are you sure you want to offboard <span className="font-medium text-cave-text-primary">{member.first_name} {member.last_name}</span>?
+          </p>
+          <div className="bg-cave-bg-elevated rounded-lg p-4 mb-6">
+            <p className="text-sm text-cave-text-secondary">
+              This will mark the member as <span className="font-medium text-cave-status-warning">inactive</span>. They will:
+            </p>
+            <ul className="mt-2 space-y-1 text-sm text-cave-text-muted">
+              <li className="flex items-start gap-2">
+                <span className="text-cave-status-warning mt-0.5">•</span>
+                Not appear in member directories
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-cave-status-warning mt-0.5">•</span>
+                Not be visible in engagement data
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-cave-status-warning mt-0.5">•</span>
+                Retain their data for record-keeping
+              </li>
+            </ul>
+          </div>
+          <div className="flex gap-3">
+            <button type="button" onClick={onClose} disabled={isLoading} className="flex-1 px-4 py-2 text-cave-text-secondary hover:text-cave-text-primary border border-cave-border rounded-lg hover:bg-cave-bg-elevated disabled:opacity-50">
+              Cancel
+            </button>
+            <button type="button" onClick={onConfirm} disabled={isLoading} className="flex-1 px-4 py-2 bg-cave-status-warning text-white rounded-lg font-medium hover:bg-cave-status-warning/90 disabled:opacity-50 flex items-center justify-center gap-2">
+              {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserMinus className="w-4 h-4" />}
+              {isLoading ? 'Offboarding...' : 'Offboard'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function MemberModal({ member, onClose, onSave }: { member: Member | null; onClose: () => void; onSave: (data: Partial<Member>, telegramData?: { telegram_username?: string }) => void }) {
+  const queryClient = useQueryClient()
   const [firstName, setFirstName] = useState(member?.first_name || '')
   const [lastName, setLastName] = useState(member?.last_name || '')
   const [email, setEmail] = useState(member?.email || '')
@@ -131,45 +178,75 @@ function MemberModal({ member, onClose, onSave }: { member: Member | null; onClo
   const [country, setCountry] = useState(member?.country || '')
   const [joinDate, setJoinDate] = useState(member?.join_date?.split('T')[0] || new Date().toISOString().split('T')[0])
   const [telegramUsername, setTelegramUsername] = useState(member?.member_telegram?.telegram_username || '')
+  const [showOffboardModal, setShowOffboardModal] = useState(false)
+
+  const offboardMember = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase.from('members').update({ status: 'INACTIVE' }).eq('id', member!.id)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['members'] })
+      onClose()
+    }
+  })
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     onSave({ first_name: firstName || null, last_name: lastName || null, email: email || null, phone: phone || null, status, business_arena: businessArena || null, city: city || null, country: country || null, join_date: joinDate || null }, { telegram_username: telegramUsername || undefined })
   }
 
+  const isEditing = !!member
+  const canOffboard = isEditing && member.status !== 'INACTIVE'
+
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-cave-bg-secondary rounded-xl border border-cave-border w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto">
-        <div className="sticky top-0 bg-cave-bg-secondary flex items-center justify-between px-6 py-4 border-b border-cave-border">
-          <h2 className="text-lg font-semibold text-cave-text-primary">{member ? 'Edit Member' : 'Add New Member'}</h2>
-          <button onClick={onClose} className="p-1 hover:bg-cave-bg-elevated rounded"><X className="w-5 h-5 text-cave-text-muted" /></button>
+    <>
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+        <div className="bg-cave-bg-secondary rounded-xl border border-cave-border w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto">
+          <div className="sticky top-0 bg-cave-bg-secondary flex items-center justify-between px-6 py-4 border-b border-cave-border">
+            <h2 className="text-lg font-semibold text-cave-text-primary">{member ? 'Edit Member' : 'Add New Member'}</h2>
+            <button onClick={onClose} className="p-1 hover:bg-cave-bg-elevated rounded"><X className="w-5 h-5 text-cave-text-muted" /></button>
+          </div>
+          <form onSubmit={handleSubmit} className="p-6 space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div><label className="block text-sm font-medium text-cave-text-secondary mb-1">First Name *</label><input type="text" value={firstName} onChange={(e) => setFirstName(e.target.value)} required className="w-full px-3 py-2 bg-cave-bg-elevated border border-cave-border rounded-lg text-cave-text-primary focus:outline-none focus:border-cave-gold" /></div>
+              <div><label className="block text-sm font-medium text-cave-text-secondary mb-1">Last Name</label><input type="text" value={lastName} onChange={(e) => setLastName(e.target.value)} className="w-full px-3 py-2 bg-cave-bg-elevated border border-cave-border rounded-lg text-cave-text-primary focus:outline-none focus:border-cave-gold" /></div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div><label className="block text-sm font-medium text-cave-text-secondary mb-1">Email *</label><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required className="w-full px-3 py-2 bg-cave-bg-elevated border border-cave-border rounded-lg text-cave-text-primary focus:outline-none focus:border-cave-gold" /></div>
+              <div><label className="block text-sm font-medium text-cave-text-secondary mb-1">Phone</label><input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} className="w-full px-3 py-2 bg-cave-bg-elevated border border-cave-border rounded-lg text-cave-text-primary focus:outline-none focus:border-cave-gold" /></div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div><label className="block text-sm font-medium text-cave-text-secondary mb-1">Status</label><select value={status || 'ACTIVE'} onChange={(e) => setStatus(e.target.value)} className="w-full px-3 py-2 bg-cave-bg-elevated border border-cave-border rounded-lg text-cave-text-primary focus:outline-none focus:border-cave-gold"><option value="ACTIVE">Active</option><option value="INACTIVE">Inactive</option><option value="PENDING">Pending</option><option value="CHURNED">Churned</option></select></div>
+              <div><label className="block text-sm font-medium text-cave-text-secondary mb-1">Join Date</label><input type="date" value={joinDate} onChange={(e) => setJoinDate(e.target.value)} className="w-full px-3 py-2 bg-cave-bg-elevated border border-cave-border rounded-lg text-cave-text-primary focus:outline-none focus:border-cave-gold" /></div>
+            </div>
+            <div><label className="block text-sm font-medium text-cave-text-secondary mb-1">Business Arena</label><input type="text" value={businessArena} onChange={(e) => setBusinessArena(e.target.value)} className="w-full px-3 py-2 bg-cave-bg-elevated border border-cave-border rounded-lg text-cave-text-primary focus:outline-none focus:border-cave-gold" /></div>
+            <div className="grid grid-cols-2 gap-4">
+              <div><label className="block text-sm font-medium text-cave-text-secondary mb-1">City</label><input type="text" value={city} onChange={(e) => setCity(e.target.value)} className="w-full px-3 py-2 bg-cave-bg-elevated border border-cave-border rounded-lg text-cave-text-primary focus:outline-none focus:border-cave-gold" /></div>
+              <div><label className="block text-sm font-medium text-cave-text-secondary mb-1">Country</label><input type="text" value={country} onChange={(e) => setCountry(e.target.value)} className="w-full px-3 py-2 bg-cave-bg-elevated border border-cave-border rounded-lg text-cave-text-primary focus:outline-none focus:border-cave-gold" /></div>
+            </div>
+            <div><label className="block text-sm font-medium text-cave-text-secondary mb-1">Telegram Username</label><div className="relative"><span className="absolute left-3 top-1/2 -translate-y-1/2 text-cave-text-muted">@</span><input type="text" value={telegramUsername} onChange={(e) => setTelegramUsername(e.target.value.replace('@', ''))} placeholder="username" className="w-full pl-8 pr-3 py-2 bg-cave-bg-elevated border border-cave-border rounded-lg text-cave-text-primary focus:outline-none focus:border-cave-gold" /></div></div>
+            <div className="flex justify-between items-center pt-4">
+              <div>
+                {canOffboard && (
+                  <button type="button" onClick={() => setShowOffboardModal(true)} className="flex items-center gap-2 px-4 py-2 text-cave-status-warning hover:bg-cave-status-warning/10 rounded-lg transition-colors">
+                    <UserMinus className="w-4 h-4" />
+                    Offboard Member
+                  </button>
+                )}
+              </div>
+              <div className="flex gap-3">
+                <button type="button" onClick={onClose} className="px-4 py-2 text-cave-text-secondary hover:text-cave-text-primary">Cancel</button>
+                <button type="submit" className="px-4 py-2 bg-cave-gold text-cave-bg-primary rounded-lg font-medium hover:bg-cave-gold/90">{member ? 'Save Changes' : 'Add Member'}</button>
+              </div>
+            </div>
+          </form>
         </div>
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div><label className="block text-sm font-medium text-cave-text-secondary mb-1">First Name *</label><input type="text" value={firstName} onChange={(e) => setFirstName(e.target.value)} required className="w-full px-3 py-2 bg-cave-bg-elevated border border-cave-border rounded-lg text-cave-text-primary focus:outline-none focus:border-cave-gold" /></div>
-            <div><label className="block text-sm font-medium text-cave-text-secondary mb-1">Last Name</label><input type="text" value={lastName} onChange={(e) => setLastName(e.target.value)} className="w-full px-3 py-2 bg-cave-bg-elevated border border-cave-border rounded-lg text-cave-text-primary focus:outline-none focus:border-cave-gold" /></div>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div><label className="block text-sm font-medium text-cave-text-secondary mb-1">Email *</label><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required className="w-full px-3 py-2 bg-cave-bg-elevated border border-cave-border rounded-lg text-cave-text-primary focus:outline-none focus:border-cave-gold" /></div>
-            <div><label className="block text-sm font-medium text-cave-text-secondary mb-1">Phone</label><input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} className="w-full px-3 py-2 bg-cave-bg-elevated border border-cave-border rounded-lg text-cave-text-primary focus:outline-none focus:border-cave-gold" /></div>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div><label className="block text-sm font-medium text-cave-text-secondary mb-1">Status</label><select value={status || 'ACTIVE'} onChange={(e) => setStatus(e.target.value)} className="w-full px-3 py-2 bg-cave-bg-elevated border border-cave-border rounded-lg text-cave-text-primary focus:outline-none focus:border-cave-gold"><option value="ACTIVE">Active</option><option value="INACTIVE">Inactive</option><option value="PENDING">Pending</option><option value="CHURNED">Churned</option></select></div>
-            <div><label className="block text-sm font-medium text-cave-text-secondary mb-1">Join Date</label><input type="date" value={joinDate} onChange={(e) => setJoinDate(e.target.value)} className="w-full px-3 py-2 bg-cave-bg-elevated border border-cave-border rounded-lg text-cave-text-primary focus:outline-none focus:border-cave-gold" /></div>
-          </div>
-          <div><label className="block text-sm font-medium text-cave-text-secondary mb-1">Business Arena</label><input type="text" value={businessArena} onChange={(e) => setBusinessArena(e.target.value)} className="w-full px-3 py-2 bg-cave-bg-elevated border border-cave-border rounded-lg text-cave-text-primary focus:outline-none focus:border-cave-gold" /></div>
-          <div className="grid grid-cols-2 gap-4">
-            <div><label className="block text-sm font-medium text-cave-text-secondary mb-1">City</label><input type="text" value={city} onChange={(e) => setCity(e.target.value)} className="w-full px-3 py-2 bg-cave-bg-elevated border border-cave-border rounded-lg text-cave-text-primary focus:outline-none focus:border-cave-gold" /></div>
-            <div><label className="block text-sm font-medium text-cave-text-secondary mb-1">Country</label><input type="text" value={country} onChange={(e) => setCountry(e.target.value)} className="w-full px-3 py-2 bg-cave-bg-elevated border border-cave-border rounded-lg text-cave-text-primary focus:outline-none focus:border-cave-gold" /></div>
-          </div>
-          <div><label className="block text-sm font-medium text-cave-text-secondary mb-1">Telegram Username</label><div className="relative"><span className="absolute left-3 top-1/2 -translate-y-1/2 text-cave-text-muted">@</span><input type="text" value={telegramUsername} onChange={(e) => setTelegramUsername(e.target.value.replace('@', ''))} placeholder="username" className="w-full pl-8 pr-3 py-2 bg-cave-bg-elevated border border-cave-border rounded-lg text-cave-text-primary focus:outline-none focus:border-cave-gold" /></div></div>
-          <div className="flex justify-end gap-3 pt-4">
-            <button type="button" onClick={onClose} className="px-4 py-2 text-cave-text-secondary hover:text-cave-text-primary">Cancel</button>
-            <button type="submit" className="px-4 py-2 bg-cave-gold text-cave-bg-primary rounded-lg font-medium hover:bg-cave-gold/90">{member ? 'Save Changes' : 'Add Member'}</button>
-          </div>
-        </form>
       </div>
-    </div>
+      {showOffboardModal && member && (
+        <OffboardConfirmModal member={member} onClose={() => setShowOffboardModal(false)} onConfirm={() => offboardMember.mutate()} isLoading={offboardMember.isPending} />
+      )}
+    </>
   )
 }
 

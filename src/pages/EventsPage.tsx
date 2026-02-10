@@ -1,11 +1,12 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { 
-  Plus, 
-  Calendar, 
-  MapPin, 
-  Users, 
-  Search, 
+import {
+  Plus,
+  Calendar,
+  MapPin,
+  Users,
+  Search,
   MoreVertical,
   Edit,
   Trash2,
@@ -13,12 +14,19 @@ import {
   Globe,
   Lock,
   Clock,
-  Video
+  Video,
+  Plane,
+  ChevronLeft,
+  ChevronRight,
+  X
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { cn } from '../lib/utils'
 import { EventModal } from '../components/EventModal'
 import { EventAttendeesModal } from '..//components/EventAttendeesModal'
+import { UaeTravelModal } from '../components/UaeTravelModal'
+import { useUaeTravels, useDeleteUaeTravel } from '../hooks/useUaeTravel'
+import type { UaeTravel } from '../types/database'
 
 type EventStatus = 'DRAFT' | 'PUBLISHED' | 'CANCELLED' | 'COMPLETED'
 type LocationType = 'in_person' | 'online' | 'hybrid'
@@ -53,13 +61,22 @@ const statusColors: Record<EventStatus, string> = {
 }
 
 export function EventsPage() {
+  const [mainTab, setMainTab] = useState<'events' | 'uae-travel'>('events')
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<EventStatus | 'ALL'>('ALL')
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [editingEvent, setEditingEvent] = useState<Event | null>(null)
   const [attendeesEvent, setAttendeesEvent] = useState<Event | null>(null)
   const [openMenuId, setOpenMenuId] = useState<string | null>(null)
-  
+  const [isTravelModalOpen, setIsTravelModalOpen] = useState(false)
+  const [editingTravel, setEditingTravel] = useState<UaeTravel | null>(null)
+  const [calendarMonth, setCalendarMonth] = useState(() => {
+    const now = new Date()
+    return { year: now.getFullYear(), month: now.getMonth() }
+  })
+  const [selectedCalendarDate, setSelectedCalendarDate] = useState<string | null>(null)
+
+  const navigate = useNavigate()
   const queryClient = useQueryClient()
 
   const { data: events, isLoading } = useQuery({
@@ -94,6 +111,20 @@ export function EventsPage() {
       queryClient.invalidateQueries({ queryKey: ['events'] })
     }
   })
+
+  // UAE Travel data
+  const { data: uaeTravels, isLoading: isLoadingTravels } = useUaeTravels()
+  const deleteTravelMutation = useDeleteUaeTravel()
+
+  const now = new Date()
+  const upcomingTravels = uaeTravels?.filter(t => new Date(t.travel_date) >= now)
+  const pastTravels = uaeTravels?.filter(t => new Date(t.travel_date) < now)
+
+  const handleDeleteTravel = (id: string) => {
+    if (confirm('Are you sure you want to delete this travel entry?')) {
+      deleteTravelMutation.mutate(id)
+    }
+  }
 
   const filteredEvents = events?.filter(event => {
     const matchesSearch = event.title.toLowerCase().includes(searchQuery.toLowerCase())
@@ -251,110 +282,469 @@ export function EventsPage() {
     </div>
   )
 
+  const formatTravelDate = (date: string) => {
+    return new Date(date + 'T00:00:00').toLocaleDateString('en-GB', {
+      weekday: 'short',
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric'
+    })
+  }
+
+  const TravelCard = ({ travel }: { travel: UaeTravel }) => (
+    <div className="bg-cave-bg-card border border-cave-border rounded-lg p-5 hover:border-cave-gold/30 transition-colors">
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-3 min-w-0">
+          {travel.member_profile_picture_url ? (
+            <img
+              src={travel.member_profile_picture_url}
+              alt=""
+              className="w-10 h-10 rounded-full object-cover flex-shrink-0"
+            />
+          ) : (
+            <div className="w-10 h-10 rounded-full bg-cave-gold/20 flex items-center justify-center text-cave-gold font-medium text-sm flex-shrink-0">
+              {(travel.member_first_name || '?')[0]}{(travel.member_last_name || '?')[0]}
+            </div>
+          )}
+          <div className="min-w-0">
+            <div className="text-cave-text-primary font-medium truncate">
+              {travel.member_first_name} {travel.member_last_name}
+            </div>
+            <div className="flex items-center gap-2 text-sm text-cave-text-secondary">
+              <Calendar className="w-3.5 h-3.5 text-cave-text-muted" />
+              {formatTravelDate(travel.travel_date)}
+            </div>
+            {travel.notes && (
+              <div className="text-sm text-cave-text-muted mt-1 truncate">{travel.notes}</div>
+            )}
+          </div>
+        </div>
+        <div className="flex items-center gap-1 flex-shrink-0">
+          <button
+            onClick={() => setEditingTravel(travel)}
+            className="p-2 rounded-lg text-cave-text-muted hover:bg-cave-bg-elevated hover:text-cave-text-primary transition-colors"
+          >
+            <Edit className="w-4 h-4" />
+          </button>
+          <button
+            onClick={() => handleDeleteTravel(travel.id)}
+            className="p-2 rounded-lg text-cave-text-muted hover:bg-cave-status-error/10 hover:text-cave-status-error transition-colors"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+
   return (
     <div className="p-6 max-w-6xl mx-auto">
       {/* Header */}
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-cave-text-primary">Events</h1>
           <p className="text-cave-text-secondary mt-1">Manage community events and track attendance</p>
         </div>
         <button
-          onClick={() => setIsCreateModalOpen(true)}
+          onClick={() => mainTab === 'events' ? setIsCreateModalOpen(true) : setIsTravelModalOpen(true)}
           className="px-4 py-2.5 bg-cave-gold text-cave-bg-primary font-medium rounded-lg hover:bg-cave-gold-dark transition-colors flex items-center gap-2"
         >
           <Plus className="w-5 h-5" />
-          Create Event
+          {mainTab === 'events' ? 'Create Event' : 'Add UAE Travel'}
         </button>
       </div>
 
-      {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-4 mb-6">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-cave-text-muted" />
-          <input
-            type="text"
-            placeholder="Search events..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 bg-cave-bg-secondary border border-cave-border rounded-lg text-cave-text-primary placeholder:text-cave-text-muted focus:outline-none focus:border-cave-gold/50"
-          />
-        </div>
-        <select
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value as EventStatus | 'ALL')}
-          className="px-4 py-2.5 bg-cave-bg-secondary border border-cave-border rounded-lg text-cave-text-primary focus:outline-none focus:border-cave-gold/50"
+      {/* Tabs */}
+      <div className="flex items-center gap-4 border-b border-cave-border mb-6">
+        <button
+          onClick={() => setMainTab('events')}
+          className={cn(
+            "flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 -mb-px transition-colors",
+            mainTab === 'events'
+              ? "border-cave-gold text-cave-gold"
+              : "border-transparent text-cave-text-secondary hover:text-cave-text-primary"
+          )}
         >
-          <option value="ALL">All Status</option>
-          <option value="DRAFT">Draft</option>
-          <option value="PUBLISHED">Published</option>
-          <option value="CANCELLED">Cancelled</option>
-          <option value="COMPLETED">Completed</option>
-        </select>
+          <Calendar className="w-4 h-4" />
+          Events
+        </button>
+        <button
+          onClick={() => setMainTab('uae-travel')}
+          className={cn(
+            "flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 -mb-px transition-colors",
+            mainTab === 'uae-travel'
+              ? "border-cave-gold text-cave-gold"
+              : "border-transparent text-cave-text-secondary hover:text-cave-text-primary"
+          )}
+        >
+          <Plane className="w-4 h-4" />
+          UAE Travel
+        </button>
       </div>
 
-      {isLoading ? (
-        <div className="flex items-center justify-center py-12">
-          <div className="w-8 h-8 border-2 border-cave-gold border-t-transparent rounded-full animate-spin" />
-        </div>
-      ) : (
-        <div className="space-y-8">
-          {/* Upcoming Events */}
-          {upcomingEvents && upcomingEvents.length > 0 && (
-            <section>
-              <h2 className="text-lg font-semibold text-cave-text-primary mb-4 flex items-center gap-2">
-                <Calendar className="w-5 h-5 text-cave-gold" />
-                Upcoming Events
-                <span className="text-sm font-normal text-cave-text-muted">({upcomingEvents.length})</span>
-              </h2>
-              <div className="grid gap-4 md:grid-cols-2">
-                {upcomingEvents.map(event => (
-                  <EventCard key={event.id} event={event} />
-                ))}
-              </div>
-            </section>
-          )}
+      {/* Events Tab Content */}
+      {mainTab === 'events' && (
+        <>
+          {/* Filters */}
+          <div className="flex flex-col sm:flex-row gap-4 mb-6">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-cave-text-muted" />
+              <input
+                type="text"
+                placeholder="Search events..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-10 pr-4 py-2.5 bg-cave-bg-secondary border border-cave-border rounded-lg text-cave-text-primary placeholder:text-cave-text-muted focus:outline-none focus:border-cave-gold/50"
+              />
+            </div>
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value as EventStatus | 'ALL')}
+              className="px-4 py-2.5 bg-cave-bg-secondary border border-cave-border rounded-lg text-cave-text-primary focus:outline-none focus:border-cave-gold/50"
+            >
+              <option value="ALL">All Status</option>
+              <option value="DRAFT">Draft</option>
+              <option value="PUBLISHED">Published</option>
+              <option value="CANCELLED">Cancelled</option>
+              <option value="COMPLETED">Completed</option>
+            </select>
+          </div>
 
-          {/* Past Events */}
-          {pastEvents && pastEvents.length > 0 && (
-            <section>
-              <h2 className="text-lg font-semibold text-cave-text-primary mb-4 flex items-center gap-2">
-                <Clock className="w-5 h-5 text-cave-text-muted" />
-                Past Events
-                <span className="text-sm font-normal text-cave-text-muted">({pastEvents.length})</span>
-              </h2>
-              <div className="grid gap-4 md:grid-cols-2">
-                {pastEvents.map(event => (
-                  <EventCard key={event.id} event={event} />
-                ))}
-              </div>
-            </section>
-          )}
+          {isLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <div className="w-8 h-8 border-2 border-cave-gold border-t-transparent rounded-full animate-spin" />
+            </div>
+          ) : (
+            <div className="space-y-8">
+              {upcomingEvents && upcomingEvents.length > 0 && (
+                <section>
+                  <h2 className="text-lg font-semibold text-cave-text-primary mb-4 flex items-center gap-2">
+                    <Calendar className="w-5 h-5 text-cave-gold" />
+                    Upcoming Events
+                    <span className="text-sm font-normal text-cave-text-muted">({upcomingEvents.length})</span>
+                  </h2>
+                  <div className="grid gap-4 md:grid-cols-2">
+                    {upcomingEvents.map(event => (
+                      <EventCard key={event.id} event={event} />
+                    ))}
+                  </div>
+                </section>
+              )}
 
-          {/* Empty State */}
-          {(!filteredEvents || filteredEvents.length === 0) && (
-            <div className="text-center py-12">
-              <Calendar className="w-12 h-12 text-cave-text-muted mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-cave-text-primary mb-2">No events found</h3>
-              <p className="text-cave-text-secondary mb-4">
-                {searchQuery || statusFilter !== 'ALL' 
-                  ? 'Try adjusting your filters'
-                  : 'Create your first event to get started'}
-              </p>
-              {!searchQuery && statusFilter === 'ALL' && (
-                <button
-                  onClick={() => setIsCreateModalOpen(true)}
-                  className="px-4 py-2 bg-cave-gold text-cave-bg-primary font-medium rounded-lg hover:bg-cave-gold-dark transition-colors"
-                >
-                  Create Event
-                </button>
+              {pastEvents && pastEvents.length > 0 && (
+                <section>
+                  <h2 className="text-lg font-semibold text-cave-text-primary mb-4 flex items-center gap-2">
+                    <Clock className="w-5 h-5 text-cave-text-muted" />
+                    Past Events
+                    <span className="text-sm font-normal text-cave-text-muted">({pastEvents.length})</span>
+                  </h2>
+                  <div className="grid gap-4 md:grid-cols-2">
+                    {pastEvents.map(event => (
+                      <EventCard key={event.id} event={event} />
+                    ))}
+                  </div>
+                </section>
+              )}
+
+              {(!filteredEvents || filteredEvents.length === 0) && (
+                <div className="text-center py-12">
+                  <Calendar className="w-12 h-12 text-cave-text-muted mx-auto mb-4" />
+                  <h3 className="text-lg font-medium text-cave-text-primary mb-2">No events found</h3>
+                  <p className="text-cave-text-secondary mb-4">
+                    {searchQuery || statusFilter !== 'ALL'
+                      ? 'Try adjusting your filters'
+                      : 'Create your first event to get started'}
+                  </p>
+                  {!searchQuery && statusFilter === 'ALL' && (
+                    <button
+                      onClick={() => setIsCreateModalOpen(true)}
+                      className="px-4 py-2 bg-cave-gold text-cave-bg-primary font-medium rounded-lg hover:bg-cave-gold-dark transition-colors"
+                    >
+                      Create Event
+                    </button>
+                  )}
+                </div>
               )}
             </div>
           )}
-        </div>
+        </>
       )}
 
-      {/* Create/Edit Modal */}
+      {/* UAE Travel Tab Content */}
+      {mainTab === 'uae-travel' && (
+        <>
+          {/* Calendar View */}
+          {(() => {
+            const { year, month } = calendarMonth
+            const today = new Date()
+            const firstDay = new Date(year, month, 1)
+            const lastDay = new Date(year, month + 1, 0)
+            const startDayOfWeek = firstDay.getDay() // 0=Sun
+            const daysInMonth = lastDay.getDate()
+            const monthLabel = firstDay.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })
+
+            // Build map of day -> travel entries for this month
+            const travelsByDay = new Map<number, UaeTravel[]>()
+            uaeTravels?.forEach(t => {
+              const d = new Date(t.travel_date + 'T00:00:00')
+              if (d.getFullYear() === year && d.getMonth() === month) {
+                const day = d.getDate()
+                if (!travelsByDay.has(day)) travelsByDay.set(day, [])
+                travelsByDay.get(day)!.push(t)
+              }
+            })
+
+            const isToday = (day: number) =>
+              today.getFullYear() === year && today.getMonth() === month && today.getDate() === day
+
+            const prevMonth = () => {
+              setCalendarMonth(prev =>
+                prev.month === 0
+                  ? { year: prev.year - 1, month: 11 }
+                  : { year: prev.year, month: prev.month - 1 }
+              )
+            }
+            const nextMonth = () => {
+              setCalendarMonth(prev =>
+                prev.month === 11
+                  ? { year: prev.year + 1, month: 0 }
+                  : { year: prev.year, month: prev.month + 1 }
+              )
+            }
+            const goToToday = () => {
+              setCalendarMonth({ year: today.getFullYear(), month: today.getMonth() })
+            }
+
+            const dateKey = (day: number) => {
+              const mm = String(month + 1).padStart(2, '0')
+              const dd = String(day).padStart(2, '0')
+              return `${year}-${mm}-${dd}`
+            }
+
+            // Build grid cells: leading blanks + day numbers
+            const cells: (number | null)[] = []
+            for (let i = 0; i < startDayOfWeek; i++) cells.push(null)
+            for (let d = 1; d <= daysInMonth; d++) cells.push(d)
+
+            return (
+              <div className="bg-cave-bg-card border border-cave-border rounded-lg p-5 mb-6">
+                {/* Month navigation */}
+                <div className="flex items-center justify-between mb-4">
+                  <button
+                    onClick={prevMonth}
+                    className="p-1.5 rounded-lg text-cave-text-muted hover:bg-cave-bg-elevated hover:text-cave-text-primary transition-colors"
+                  >
+                    <ChevronLeft className="w-5 h-5" />
+                  </button>
+                  <div className="flex items-center gap-3">
+                    <h3 className="text-base font-semibold text-cave-text-primary">{monthLabel}</h3>
+                    {!(today.getFullYear() === year && today.getMonth() === month) && (
+                      <button
+                        onClick={goToToday}
+                        className="text-xs text-cave-gold hover:text-cave-gold-dark transition-colors"
+                      >
+                        Today
+                      </button>
+                    )}
+                  </div>
+                  <button
+                    onClick={nextMonth}
+                    className="p-1.5 rounded-lg text-cave-text-muted hover:bg-cave-bg-elevated hover:text-cave-text-primary transition-colors"
+                  >
+                    <ChevronRight className="w-5 h-5" />
+                  </button>
+                </div>
+
+                {/* Day-of-week headers */}
+                <div className="grid grid-cols-7 gap-1 mb-1">
+                  {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => (
+                    <div key={d} className="text-center text-xs font-medium text-cave-text-muted py-1">
+                      {d}
+                    </div>
+                  ))}
+                </div>
+
+                {/* Calendar grid */}
+                <div className="grid grid-cols-7 gap-1">
+                  {cells.map((day, i) => {
+                    const travels = day !== null ? travelsByDay.get(day) : undefined
+                    const hasTravel = !!travels && travels.length > 0
+                    const isTodayCell = day !== null && isToday(day)
+
+                    return (
+                      <button
+                        key={i}
+                        type="button"
+                        disabled={!hasTravel}
+                        onClick={() => {
+                          if (hasTravel && day !== null) setSelectedCalendarDate(dateKey(day))
+                        }}
+                        className={cn(
+                          "relative flex flex-col items-center rounded-lg py-1.5 px-1 text-sm transition-colors min-h-[3.5rem]",
+                          day === null && "invisible",
+                          isTodayCell && "bg-cave-gold/20 font-bold text-cave-gold",
+                          day !== null && !isTodayCell && "text-cave-text-secondary",
+                          hasTravel && !isTodayCell && "bg-cave-bg-elevated",
+                          hasTravel && "cursor-pointer hover:ring-1 hover:ring-cave-gold/50",
+                          !hasTravel && "cursor-default"
+                        )}
+                      >
+                        <span>{day}</span>
+                        {hasTravel && (
+                          <span className="text-[10px] leading-tight text-cave-gold mt-0.5 truncate max-w-full px-0.5">
+                            {travels.length === 1
+                              ? travels[0].member_first_name
+                              : `${travels.length} travelling`}
+                          </span>
+                        )}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            )
+          })()}
+
+          {/* Date Detail Modal */}
+          {selectedCalendarDate && (() => {
+            const travelsForDate = uaeTravels?.filter(t => t.travel_date === selectedCalendarDate) || []
+            const displayDate = new Date(selectedCalendarDate + 'T00:00:00').toLocaleDateString('en-GB', {
+              weekday: 'long',
+              day: 'numeric',
+              month: 'long',
+              year: 'numeric'
+            })
+
+            return (
+              <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+                <div className="bg-cave-bg-secondary border border-cave-border rounded-xl w-full max-w-md max-h-[80vh] overflow-hidden flex flex-col">
+                  {/* Header */}
+                  <div className="flex items-center justify-between px-6 py-4 border-b border-cave-border">
+                    <div>
+                      <h2 className="text-lg font-semibold text-cave-text-primary">UAE Travel</h2>
+                      <p className="text-sm text-cave-text-secondary">{displayDate}</p>
+                    </div>
+                    <button
+                      onClick={() => setSelectedCalendarDate(null)}
+                      className="p-2 rounded-lg text-cave-text-muted hover:bg-cave-bg-elevated hover:text-cave-text-primary transition-colors"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                  </div>
+
+                  {/* Member list */}
+                  <div className="flex-1 overflow-y-auto p-2">
+                    {travelsForDate.map(travel => (
+                      <div
+                        key={travel.id}
+                        className="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-cave-bg-card transition-colors"
+                      >
+                        {travel.member_profile_picture_url ? (
+                          <img
+                            src={travel.member_profile_picture_url}
+                            alt=""
+                            className="w-10 h-10 rounded-full object-cover flex-shrink-0"
+                          />
+                        ) : (
+                          <div className="w-10 h-10 rounded-full bg-cave-gold/20 flex items-center justify-center text-cave-gold font-medium text-sm flex-shrink-0">
+                            {(travel.member_first_name || '?')[0]}{(travel.member_last_name || '?')[0]}
+                          </div>
+                        )}
+                        <div className="min-w-0 flex-1">
+                          <div className="text-cave-text-primary font-medium truncate">
+                            {travel.member_first_name} {travel.member_last_name}
+                          </div>
+                          {travel.notes && (
+                            <div className="text-sm text-cave-text-muted truncate">{travel.notes}</div>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1 flex-shrink-0">
+                          <button
+                            onClick={() => {
+                              setSelectedCalendarDate(null)
+                              setEditingTravel(travel)
+                            }}
+                            title="Edit travel"
+                            className="p-2 rounded-lg text-cave-text-muted hover:bg-cave-bg-elevated hover:text-cave-text-primary transition-colors"
+                          >
+                            <Edit className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => {
+                              setSelectedCalendarDate(null)
+                              navigate(`/members/${travel.member_id}`)
+                            }}
+                            title="View profile"
+                            className="p-2 rounded-lg text-cave-text-muted hover:bg-cave-bg-elevated hover:text-cave-gold transition-colors"
+                          >
+                            <Users className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )
+          })()}
+
+          {isLoadingTravels ? (
+            <div className="flex items-center justify-center py-12">
+              <div className="w-8 h-8 border-2 border-cave-gold border-t-transparent rounded-full animate-spin" />
+            </div>
+          ) : (
+            <div className="space-y-8">
+              {upcomingTravels && upcomingTravels.length > 0 && (
+                <section>
+                  <h2 className="text-lg font-semibold text-cave-text-primary mb-4 flex items-center gap-2">
+                    <Plane className="w-5 h-5 text-cave-gold" />
+                    Upcoming Travel
+                    <span className="text-sm font-normal text-cave-text-muted">({upcomingTravels.length})</span>
+                  </h2>
+                  <div className="grid gap-4 md:grid-cols-2">
+                    {upcomingTravels.map(travel => (
+                      <TravelCard key={travel.id} travel={travel} />
+                    ))}
+                  </div>
+                </section>
+              )}
+
+              {pastTravels && pastTravels.length > 0 && (
+                <section>
+                  <h2 className="text-lg font-semibold text-cave-text-primary mb-4 flex items-center gap-2">
+                    <Clock className="w-5 h-5 text-cave-text-muted" />
+                    Past Travel
+                    <span className="text-sm font-normal text-cave-text-muted">({pastTravels.length})</span>
+                  </h2>
+                  <div className="grid gap-4 md:grid-cols-2">
+                    {pastTravels.map(travel => (
+                      <TravelCard key={travel.id} travel={travel} />
+                    ))}
+                  </div>
+                </section>
+              )}
+
+              {(!uaeTravels || uaeTravels.length === 0) && (
+                <div className="text-center py-12">
+                  <Plane className="w-12 h-12 text-cave-text-muted mx-auto mb-4" />
+                  <h3 className="text-lg font-medium text-cave-text-primary mb-2">No UAE travel entries</h3>
+                  <p className="text-cave-text-secondary mb-4">
+                    Track when members are travelling to the UAE
+                  </p>
+                  <button
+                    onClick={() => setIsTravelModalOpen(true)}
+                    className="px-4 py-2 bg-cave-gold text-cave-bg-primary font-medium rounded-lg hover:bg-cave-gold-dark transition-colors"
+                  >
+                    Add UAE Travel
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+        </>
+      )}
+
+      {/* Create/Edit Event Modal */}
       {(isCreateModalOpen || editingEvent) && (
         <EventModal
           event={editingEvent}
@@ -370,6 +760,17 @@ export function EventsPage() {
         <EventAttendeesModal
           event={attendeesEvent}
           onClose={() => setAttendeesEvent(null)}
+        />
+      )}
+
+      {/* UAE Travel Modal */}
+      {(isTravelModalOpen || editingTravel) && (
+        <UaeTravelModal
+          entry={editingTravel}
+          onClose={() => {
+            setIsTravelModalOpen(false)
+            setEditingTravel(null)
+          }}
         />
       )}
     </div>

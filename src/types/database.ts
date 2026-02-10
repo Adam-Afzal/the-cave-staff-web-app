@@ -125,3 +125,17 @@ export interface Event {
   created_at: string
   updated_at: string
 }
+
+export interface UaeTravel {
+  id: string
+  member_id: string
+  travel_date: string
+  notes: string | null
+  created_at: string
+  updated_at: string
+  // Joined fields
+  member_first_name?: string
+  member_last_name?: string
+  member_email?: string
+  member_profile_picture_url?: string | null
+}
