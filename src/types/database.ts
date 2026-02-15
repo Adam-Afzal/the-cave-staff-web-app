@@ -3,6 +3,7 @@ export type MemberStatus = 'ACTIVE' | 'INACTIVE' | 'CHURNED' | 'PENDING'
 export type ConnectionType = 'B2B' | 'INVESTMENT' | 'STRATEGIC' | 'LEGAL' | 'FINANCIAL'
 export type ConnectionStage = 'REQUEST_MADE' | 'CONNECTION_MADE'
 export type FlagType = 'UNWELL' | 'TRAVEL' | 'FAMILY_NEWS' | 'OPPORTUNITY' | 'NEED'
+export type MembershipType = 'Paid' | 'Trial' | 'B2B Partner'
 export type StaffRole = 'ADMIN' | 'MANAGER' | 'CONCIERGE' | 'SALES' | 'MARKETING'
 export type StaffDepartment = 'OPERATIONS' | 'SALES' | 'MARKETING' | 'CONCIERGE' | 'EXECUTIVE'
 export type ReferralStatus = 'PENDING' | 'CONTACTED' | 'CONVERTED' | 'DECLINED'
@@ -35,6 +36,7 @@ export interface Member {
   investment_interests: string[] | null
   join_date: string
   renewal_date: string | null
+  membership_type: MembershipType | null
   status: MemberStatus
   health_score: number
   intro_posted: boolean

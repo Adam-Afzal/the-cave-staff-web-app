@@ -1,6 +1,7 @@
 // src/pages/MemberProfilePage.tsx
+import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   ArrowLeft,
   Mail,
@@ -16,9 +17,17 @@ import {
   Clock,
   CheckCircle,
   XCircle,
+  Pencil,
+  X,
+  CreditCard,
+  CalendarDays,
+  RefreshCw,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { cn, getInitials } from '../lib/utils'
+import type { MembershipType } from '../types/database'
+
+const MEMBERSHIP_TYPE_OPTIONS: MembershipType[] = ['Paid', 'Trial', 'B2B Partner']
 
 function HealthScoreBadge({ score }: { score: number }) {
   return (
@@ -81,9 +90,112 @@ function SectionHeader({ icon: Icon, title, count }: {
   )
 }
 
+function EditMembershipModal({
+  member,
+  onClose
+}: {
+  member: { id: string; join_date: string; renewal_date: string | null; membership_type: MembershipType | null }
+  onClose: () => void
+}) {
+  const queryClient = useQueryClient()
+  // Ensure dates are in YYYY-MM-DD format for the date input
+  const toDateInput = (d: string | null) => d ? d.slice(0, 10) : ''
+  const [joinDate, setJoinDate] = useState(toDateInput(member.join_date))
+  const [renewalDate, setRenewalDate] = useState(toDateInput(member.renewal_date))
+  const [membershipType, setMembershipType] = useState<MembershipType | ''>(member.membership_type || '')
+
+  const updateMutation = useMutation({
+    mutationFn: async (updates: { join_date: string; renewal_date: string | null; membership_type: string | null }) => {
+      const { error } = await supabase
+        .from('members')
+        .update(updates)
+        .eq('id', member.id)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['member', member.id] })
+      onClose()
+    }
+  })
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    updateMutation.mutate({
+      join_date: joinDate,
+      renewal_date: renewalDate || null,
+      membership_type: membershipType || null,
+    })
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+      <div className="bg-cave-bg-secondary border border-cave-border rounded-xl w-full max-w-md overflow-hidden">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-cave-border">
+          <h2 className="text-xl font-semibold text-cave-text-primary">Edit Membership Details</h2>
+          <button
+            onClick={onClose}
+            className="p-2 rounded-lg text-cave-text-muted hover:bg-cave-bg-elevated hover:text-cave-text-primary transition-colors"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-6 space-y-5">
+          <div>
+            <label className="input-label">Membership Type</label>
+            <select
+              value={membershipType}
+              onChange={(e) => setMembershipType(e.target.value as MembershipType | '')}
+              className="input w-full"
+            >
+              <option value="">Select type...</option>
+              {MEMBERSHIP_TYPE_OPTIONS.map((type) => (
+                <option key={type} value={type}>{type}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="input-label">Join Date</label>
+            <input
+              type="date"
+              value={joinDate}
+              onChange={(e) => setJoinDate(e.target.value)}
+              required
+              className="input w-full"
+            />
+          </div>
+
+          <div>
+            <label className="input-label">Renewal Date</label>
+            <input
+              type="date"
+              value={renewalDate}
+              onChange={(e) => setRenewalDate(e.target.value)}
+              className="input w-full"
+            />
+          </div>
+        </form>
+
+        <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-cave-border">
+          <button type="button" onClick={onClose} className="btn-ghost">Cancel</button>
+          <button
+            onClick={handleSubmit as any}
+            disabled={!joinDate || updateMutation.isPending}
+            className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {updateMutation.isPending ? 'Saving...' : 'Save Changes'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export function MemberProfilePage() {
   const { memberId } = useParams<{ memberId: string }>()
   const navigate = useNavigate()
+  const [showEditModal, setShowEditModal] = useState(false)
 
   // Fetch member data with telegram info
   const { data: member, isLoading: memberLoading } = useQuery({
@@ -501,21 +613,80 @@ export function MemberProfilePage() {
         </div>
       </div>
 
-      {/* Membership Dates */}
+      {/* Membership Details */}
       <div className="mt-6 bg-cave-bg-secondary rounded-xl border border-cave-border p-5">
-        <div className="flex items-center justify-between text-sm">
-          <div>
-            <span className="text-cave-text-muted">Record created:</span>
-            <span className="ml-2 text-cave-text-primary">{formatDate(member.created_at)}</span>
-          </div>
-          {member.join_date && (
-            <div>
-              <span className="text-cave-text-muted">Joined:</span>
-              <span className="ml-2 text-cave-text-primary">{formatDate(member.join_date)}</span>
+        <div className="flex items-center justify-between mb-4">
+          <SectionHeader icon={CreditCard} title="Membership Details" />
+          <button
+            onClick={() => setShowEditModal(true)}
+            className="btn-ghost flex items-center gap-2 text-sm"
+          >
+            <Pencil className="w-4 h-4" />
+            Edit
+          </button>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+          <div className="flex items-start gap-3">
+            <div className="p-2 rounded-lg bg-cave-bg-elevated">
+              <CreditCard className="w-4 h-4 text-cave-text-muted" />
             </div>
-          )}
+            <div>
+              <p className="text-xs text-cave-text-muted uppercase tracking-wider">Membership Type</p>
+              <p className="text-cave-text-primary font-medium">
+                {member.membership_type ? (
+                  <span className={cn(
+                    "px-2 py-0.5 rounded-full text-sm",
+                    member.membership_type === 'Paid' ? 'bg-cave-status-success/20 text-cave-status-success' :
+                    member.membership_type === 'Trial' ? 'bg-cave-status-warning/20 text-cave-status-warning' :
+                    'bg-cave-gold/20 text-cave-gold'
+                  )}>
+                    {member.membership_type}
+                  </span>
+                ) : (
+                  <span className="text-cave-text-muted">Not set</span>
+                )}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-start gap-3">
+            <div className="p-2 rounded-lg bg-cave-bg-elevated">
+              <CalendarDays className="w-4 h-4 text-cave-text-muted" />
+            </div>
+            <div>
+              <p className="text-xs text-cave-text-muted uppercase tracking-wider">Join Date</p>
+              <p className="text-cave-text-primary font-medium">{formatDate(member.join_date)}</p>
+            </div>
+          </div>
+          <div className="flex items-start gap-3">
+            <div className="p-2 rounded-lg bg-cave-bg-elevated">
+              <RefreshCw className="w-4 h-4 text-cave-text-muted" />
+            </div>
+            <div>
+              <p className="text-xs text-cave-text-muted uppercase tracking-wider">Renewal Date</p>
+              <p className="text-cave-text-primary font-medium">
+                {member.renewal_date ? formatDate(member.renewal_date) : <span className="text-cave-text-muted">Not set</span>}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-start gap-3">
+            <div className="p-2 rounded-lg bg-cave-bg-elevated">
+              <Clock className="w-4 h-4 text-cave-text-muted" />
+            </div>
+            <div>
+              <p className="text-xs text-cave-text-muted uppercase tracking-wider">Record Created</p>
+              <p className="text-cave-text-primary font-medium">{formatDate(member.created_at)}</p>
+            </div>
+          </div>
         </div>
       </div>
+
+      {/* Edit Membership Modal */}
+      {showEditModal && (
+        <EditMembershipModal
+          member={member}
+          onClose={() => setShowEditModal(false)}
+        />
+      )}
     </div>
   )
 }
