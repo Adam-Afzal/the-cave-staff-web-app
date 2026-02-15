@@ -18,7 +18,8 @@ import {
   Plane,
   ChevronLeft,
   ChevronRight,
-  X
+  X,
+  LayoutList
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { cn } from '../lib/utils'
@@ -70,6 +71,12 @@ export function EventsPage() {
   const [openMenuId, setOpenMenuId] = useState<string | null>(null)
   const [isTravelModalOpen, setIsTravelModalOpen] = useState(false)
   const [editingTravel, setEditingTravel] = useState<UaeTravel | null>(null)
+  const [eventsView, setEventsView] = useState<'list' | 'calendar'>('list')
+  const [eventCalendarMonth, setEventCalendarMonth] = useState(() => {
+    const now = new Date()
+    return { year: now.getFullYear(), month: now.getMonth() }
+  })
+  const [selectedEventDate, setSelectedEventDate] = useState<string | null>(null)
   const [calendarMonth, setCalendarMonth] = useState(() => {
     const now = new Date()
     return { year: now.getFullYear(), month: now.getMonth() }
@@ -386,7 +393,7 @@ export function EventsPage() {
       {mainTab === 'events' && (
         <>
           {/* Filters */}
-          <div className="flex flex-col sm:flex-row gap-4 mb-6">
+          <div className="flex flex-col sm:flex-row gap-4 mb-4">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-cave-text-muted" />
               <input
@@ -410,11 +417,39 @@ export function EventsPage() {
             </select>
           </div>
 
+          {/* View Toggle */}
+          <div className="flex items-center gap-1 mb-6">
+            <button
+              onClick={() => setEventsView('list')}
+              className={cn(
+                "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors",
+                eventsView === 'list'
+                  ? "bg-cave-gold/20 text-cave-gold"
+                  : "text-cave-text-muted hover:text-cave-text-primary hover:bg-cave-bg-elevated"
+              )}
+            >
+              <LayoutList className="w-4 h-4" />
+              List
+            </button>
+            <button
+              onClick={() => setEventsView('calendar')}
+              className={cn(
+                "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors",
+                eventsView === 'calendar'
+                  ? "bg-cave-gold/20 text-cave-gold"
+                  : "text-cave-text-muted hover:text-cave-text-primary hover:bg-cave-bg-elevated"
+              )}
+            >
+              <Calendar className="w-4 h-4" />
+              Calendar
+            </button>
+          </div>
+
           {isLoading ? (
             <div className="flex items-center justify-center py-12">
               <div className="w-8 h-8 border-2 border-cave-gold border-t-transparent rounded-full animate-spin" />
             </div>
-          ) : (
+          ) : eventsView === 'list' ? (
             <div className="space-y-8">
               {upcomingEvents && upcomingEvents.length > 0 && (
                 <section>
@@ -466,6 +501,263 @@ export function EventsPage() {
                 </div>
               )}
             </div>
+          ) : (
+            <>
+              {/* Events Calendar View */}
+              {(() => {
+                const { year, month } = eventCalendarMonth
+                const today = new Date()
+                const firstDay = new Date(year, month, 1)
+                const lastDay = new Date(year, month + 1, 0)
+                const startDayOfWeek = firstDay.getDay()
+                const daysInMonth = lastDay.getDate()
+                const monthLabel = firstDay.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })
+
+                // Build map of day -> events for this month
+                const eventsByDay = new Map<number, Event[]>()
+                filteredEvents?.forEach(e => {
+                  const d = new Date(e.starts_at)
+                  if (d.getFullYear() === year && d.getMonth() === month) {
+                    const day = d.getDate()
+                    if (!eventsByDay.has(day)) eventsByDay.set(day, [])
+                    eventsByDay.get(day)!.push(e)
+                  }
+                })
+
+                const isToday = (day: number) =>
+                  today.getFullYear() === year && today.getMonth() === month && today.getDate() === day
+
+                const prevMonth = () => {
+                  setEventCalendarMonth(prev =>
+                    prev.month === 0
+                      ? { year: prev.year - 1, month: 11 }
+                      : { year: prev.year, month: prev.month - 1 }
+                  )
+                }
+                const nextMonth = () => {
+                  setEventCalendarMonth(prev =>
+                    prev.month === 11
+                      ? { year: prev.year + 1, month: 0 }
+                      : { year: prev.year, month: prev.month + 1 }
+                  )
+                }
+                const goToToday = () => {
+                  setEventCalendarMonth({ year: today.getFullYear(), month: today.getMonth() })
+                }
+
+                const dateKey = (day: number) => {
+                  const mm = String(month + 1).padStart(2, '0')
+                  const dd = String(day).padStart(2, '0')
+                  return `${year}-${mm}-${dd}`
+                }
+
+                const cells: (number | null)[] = []
+                for (let i = 0; i < startDayOfWeek; i++) cells.push(null)
+                for (let d = 1; d <= daysInMonth; d++) cells.push(d)
+
+                return (
+                  <div className="bg-cave-bg-card border border-cave-border rounded-lg p-5">
+                    {/* Month navigation */}
+                    <div className="flex items-center justify-between mb-4">
+                      <button
+                        onClick={prevMonth}
+                        className="p-1.5 rounded-lg text-cave-text-muted hover:bg-cave-bg-elevated hover:text-cave-text-primary transition-colors"
+                      >
+                        <ChevronLeft className="w-5 h-5" />
+                      </button>
+                      <div className="flex items-center gap-3">
+                        <h3 className="text-base font-semibold text-cave-text-primary">{monthLabel}</h3>
+                        {!(today.getFullYear() === year && today.getMonth() === month) && (
+                          <button
+                            onClick={goToToday}
+                            className="text-xs text-cave-gold hover:text-cave-gold-dark transition-colors"
+                          >
+                            Today
+                          </button>
+                        )}
+                      </div>
+                      <button
+                        onClick={nextMonth}
+                        className="p-1.5 rounded-lg text-cave-text-muted hover:bg-cave-bg-elevated hover:text-cave-text-primary transition-colors"
+                      >
+                        <ChevronRight className="w-5 h-5" />
+                      </button>
+                    </div>
+
+                    {/* Day-of-week headers */}
+                    <div className="grid grid-cols-7 gap-1 mb-1">
+                      {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => (
+                        <div key={d} className="text-center text-xs font-medium text-cave-text-muted py-1">
+                          {d}
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Calendar grid */}
+                    <div className="grid grid-cols-7 gap-1">
+                      {cells.map((day, i) => {
+                        const dayEvents = day !== null ? eventsByDay.get(day) : undefined
+                        const hasEvents = !!dayEvents && dayEvents.length > 0
+                        const isTodayCell = day !== null && isToday(day)
+
+                        return (
+                          <button
+                            key={i}
+                            type="button"
+                            disabled={!hasEvents}
+                            onClick={() => {
+                              if (hasEvents && day !== null) setSelectedEventDate(dateKey(day))
+                            }}
+                            className={cn(
+                              "relative flex flex-col items-center rounded-lg py-1.5 px-1 text-sm transition-colors min-h-[3.5rem]",
+                              day === null && "invisible",
+                              isTodayCell && "bg-cave-gold/20 font-bold text-cave-gold",
+                              day !== null && !isTodayCell && "text-cave-text-secondary",
+                              hasEvents && !isTodayCell && "bg-cave-bg-elevated",
+                              hasEvents && "cursor-pointer hover:ring-1 hover:ring-cave-gold/50",
+                              !hasEvents && "cursor-default"
+                            )}
+                          >
+                            <span>{day}</span>
+                            {hasEvents && (
+                              <span className="text-[10px] leading-tight text-cave-gold mt-0.5 truncate max-w-full px-0.5">
+                                {dayEvents[0].title.split(/\s+/).slice(0, 2).join(' ')}...
+                                {dayEvents.length > 1 && ` +${dayEvents.length - 1}`}
+                              </span>
+                            )}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )
+              })()}
+
+              {/* Event Date Detail Modal */}
+              {selectedEventDate && (() => {
+                const eventsForDate = filteredEvents?.filter(e => {
+                  const d = new Date(e.starts_at)
+                  const mm = String(d.getMonth() + 1).padStart(2, '0')
+                  const dd = String(d.getDate()).padStart(2, '0')
+                  return `${d.getFullYear()}-${mm}-${dd}` === selectedEventDate
+                }) || []
+                const displayDate = new Date(selectedEventDate + 'T00:00:00').toLocaleDateString('en-GB', {
+                  weekday: 'long',
+                  day: 'numeric',
+                  month: 'long',
+                  year: 'numeric'
+                })
+
+                return (
+                  <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+                    <div className="bg-cave-bg-secondary border border-cave-border rounded-xl w-full max-w-lg max-h-[80vh] overflow-hidden flex flex-col">
+                      {/* Header */}
+                      <div className="flex items-center justify-between px-6 py-4 border-b border-cave-border">
+                        <div>
+                          <h2 className="text-lg font-semibold text-cave-text-primary">Events</h2>
+                          <p className="text-sm text-cave-text-secondary">{displayDate}</p>
+                        </div>
+                        <button
+                          onClick={() => setSelectedEventDate(null)}
+                          className="p-2 rounded-lg text-cave-text-muted hover:bg-cave-bg-elevated hover:text-cave-text-primary transition-colors"
+                        >
+                          <X className="w-5 h-5" />
+                        </button>
+                      </div>
+
+                      {/* Event list */}
+                      <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                        {eventsForDate.map(event => (
+                          <div
+                            key={event.id}
+                            className="bg-cave-bg-card border border-cave-border rounded-lg p-4"
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 mb-1.5">
+                                  <span className={cn('px-2 py-0.5 rounded text-xs font-medium', statusColors[event.status])}>
+                                    {event.status}
+                                  </span>
+                                  {event.is_private && (
+                                    <span className="flex items-center gap-1 text-cave-text-muted text-xs">
+                                      <Lock className="w-3 h-3" />
+                                      Private
+                                    </span>
+                                  )}
+                                </div>
+                                <h4 className="text-sm font-semibold text-cave-text-primary truncate">
+                                  {event.title}
+                                </h4>
+                                <div className="space-y-1 mt-1.5 text-xs text-cave-text-secondary">
+                                  <div className="flex items-center gap-1.5">
+                                    <Clock className="w-3.5 h-3.5 text-cave-text-muted" />
+                                    <span>{formatTime(event.starts_at)}</span>
+                                  </div>
+                                  {event.location && (
+                                    <div className="flex items-center gap-1.5">
+                                      <LocationIcon type={event.location_type} />
+                                      <span className="truncate">{event.location}</span>
+                                    </div>
+                                  )}
+                                  <div className="flex items-center gap-1.5">
+                                    <Users className="w-3.5 h-3.5 text-cave-text-muted" />
+                                    <span>
+                                      {event.attendee_count} attending
+                                      {event.capacity && ` / ${event.capacity} capacity`}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-1 flex-shrink-0">
+                                <button
+                                  onClick={() => {
+                                    setSelectedEventDate(null)
+                                    setAttendeesEvent(event)
+                                  }}
+                                  title="Manage Attendees"
+                                  className="p-1.5 rounded-lg text-cave-text-muted hover:bg-cave-bg-elevated hover:text-cave-text-primary transition-colors"
+                                >
+                                  <Users className="w-4 h-4" />
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    setSelectedEventDate(null)
+                                    setEditingEvent(event)
+                                  }}
+                                  title="Edit Event"
+                                  className="p-1.5 rounded-lg text-cave-text-muted hover:bg-cave-bg-elevated hover:text-cave-text-primary transition-colors"
+                                >
+                                  <Edit className="w-4 h-4" />
+                                </button>
+                                {event.slug && event.status === 'PUBLISHED' && (
+                                  <button
+                                    onClick={() => copySignupLink(event.slug!)}
+                                    title="Copy Signup Link"
+                                    className="p-1.5 rounded-lg text-cave-text-muted hover:bg-cave-bg-elevated hover:text-cave-text-primary transition-colors"
+                                  >
+                                    <Link2 className="w-4 h-4" />
+                                  </button>
+                                )}
+                                <button
+                                  onClick={() => {
+                                    setSelectedEventDate(null)
+                                    handleDelete(event.id)
+                                  }}
+                                  title="Delete Event"
+                                  className="p-1.5 rounded-lg text-cave-text-muted hover:bg-cave-status-error/10 hover:text-cave-status-error transition-colors"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )
+              })()}
+            </>
           )}
         </>
       )}
