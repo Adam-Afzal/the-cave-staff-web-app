@@ -151,6 +151,7 @@ const AVAILABLE_FIELDS = {
       { name: 'youtube_topics', label: 'YouTube Topics', type: 'textarea' },
       { name: 'weekly_calls_interest', label: 'Weekly Calls Interest', type: 'textarea' },
       { name: 'board_room', label: 'Board Room Participation', type: 'textarea' },
+      { name: 'philanthropy_interest', label: 'Interested in High-Impact Philanthropy?', type: 'boolean' },
     ]
   },
   social: {
@@ -229,7 +230,8 @@ export function OnboardingFormBuilderPage() {
         'bottlenecks', 'outside_business', 'support', 'side_assets',
         'hidden_talents', 'offer_summary', 'referral_prospects',
         'twelve_month_success', 'own_description', 'youtube_topics',
-        'weekly_calls_interest', 'board_room', 'telegram_username'
+        'weekly_calls_interest', 'board_room', 'telegram_username',
+        'philanthropy_interest'
       ])
 
       // Insert new questions
@@ -793,6 +795,7 @@ function CustomFieldModal({ onClose, onAdd }: CustomFieldModalProps) {
               <option value="date">Date</option>
               <option value="select">Dropdown (Single Select)</option>
               <option value="multiselect">Multiple Choice (Multi-select)</option>
+              <option value="boolean">Checkbox (Yes/No)</option>
             </select>
           </div>
 

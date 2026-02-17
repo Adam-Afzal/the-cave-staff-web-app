@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import {
-  Users, Search, Plus, Edit2, Trash2, X, Loader2, Briefcase, Mail, Phone, MoreHorizontal, UserMinus, AlertTriangle
+  Users, Search, Plus, Edit2, Trash2, X, Loader2, Briefcase, Mail, Phone, MoreHorizontal, UserMinus, AlertTriangle, ShieldBan
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { cn, getInitials } from '../lib/utils'
@@ -20,11 +20,12 @@ interface Member {
   phone: string | null; member_id: string | null; status: string | null
   business_arena: string | null; city: string | null; country: string | null
   join_date: string | null; health_score: number | null; wealth_tier: string | null; created_at: string
+  blacklisted: boolean
   member_telegram?: { telegram_id: string | null; telegram_username: string | null; avatar_url: string | null } | null
 }
 
 type TabType = 'members' | 'third-parties'
-const statusFilters = ['All', 'Active', 'Inactive', 'Pending', 'Churned']
+const statusFilters = ['All', 'Active', 'Inactive', 'Pending', 'Churned', 'Blacklisted']
 
 function HealthScoreBadge({ score }: { score: number }) {
   return (
@@ -166,6 +167,52 @@ function OffboardConfirmModal({ member, onClose, onConfirm, isLoading }: { membe
   )
 }
 
+function BlacklistConfirmModal({ member, onClose, onConfirm, isLoading }: { member: Member; onClose: () => void; onConfirm: () => void; isLoading: boolean }) {
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60]">
+      <div className="bg-cave-bg-secondary rounded-xl border border-cave-border w-full max-w-md mx-4">
+        <div className="p-6">
+          <div className="flex items-center justify-center w-12 h-12 rounded-full bg-red-500/20 mx-auto mb-4">
+            <ShieldBan className="w-6 h-6 text-red-400" />
+          </div>
+          <h2 className="text-lg font-semibold text-cave-text-primary text-center mb-2">Blacklist Member</h2>
+          <p className="text-cave-text-secondary text-center mb-4">
+            Are you sure you want to blacklist <span className="font-medium text-cave-text-primary">{member.first_name} {member.last_name}</span>?
+          </p>
+          <div className="bg-cave-bg-elevated rounded-lg p-4 mb-6">
+            <p className="text-sm text-cave-text-secondary">
+              This will mark the member as <span className="font-medium text-red-400">blacklisted</span> and <span className="font-medium text-cave-status-warning">inactive</span>. They will:
+            </p>
+            <ul className="mt-2 space-y-1 text-sm text-cave-text-muted">
+              <li className="flex items-start gap-2">
+                <span className="text-red-400 mt-0.5">•</span>
+                Be moved to the Blacklisted category
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-red-400 mt-0.5">•</span>
+                Have their status set to inactive
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-red-400 mt-0.5">•</span>
+                Retain their data for record-keeping
+              </li>
+            </ul>
+          </div>
+          <div className="flex gap-3">
+            <button type="button" onClick={onClose} disabled={isLoading} className="flex-1 px-4 py-2 text-cave-text-secondary hover:text-cave-text-primary border border-cave-border rounded-lg hover:bg-cave-bg-elevated disabled:opacity-50">
+              Cancel
+            </button>
+            <button type="button" onClick={onConfirm} disabled={isLoading} className="flex-1 px-4 py-2 bg-red-500 text-white rounded-lg font-medium hover:bg-red-500/90 disabled:opacity-50 flex items-center justify-center gap-2">
+              {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShieldBan className="w-4 h-4" />}
+              {isLoading ? 'Blacklisting...' : 'Blacklist'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function MemberModal({ member, onClose, onSave }: { member: Member | null; onClose: () => void; onSave: (data: Partial<Member>, telegramData?: { telegram_username?: string }) => void }) {
   const queryClient = useQueryClient()
   const [firstName, setFirstName] = useState(member?.first_name || '')
@@ -179,10 +226,22 @@ function MemberModal({ member, onClose, onSave }: { member: Member | null; onClo
   const [joinDate, setJoinDate] = useState(member?.join_date?.split('T')[0] || new Date().toISOString().split('T')[0])
   const [telegramUsername, setTelegramUsername] = useState(member?.member_telegram?.telegram_username || '')
   const [showOffboardModal, setShowOffboardModal] = useState(false)
+  const [showBlacklistModal, setShowBlacklistModal] = useState(false)
 
   const offboardMember = useMutation({
     mutationFn: async () => {
       const { error } = await supabase.from('members').update({ status: 'INACTIVE' }).eq('id', member!.id)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['members'] })
+      onClose()
+    }
+  })
+
+  const blacklistMember = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase.from('members').update({ blacklisted: true, status: 'INACTIVE' }).eq('id', member!.id)
       if (error) throw error
     },
     onSuccess: () => {
@@ -198,6 +257,7 @@ function MemberModal({ member, onClose, onSave }: { member: Member | null; onClo
 
   const isEditing = !!member
   const canOffboard = isEditing && member.status !== 'INACTIVE'
+  const canBlacklist = isEditing && !member.blacklisted
 
   return (
     <>
@@ -227,11 +287,17 @@ function MemberModal({ member, onClose, onSave }: { member: Member | null; onClo
             </div>
             <div><label className="block text-sm font-medium text-cave-text-secondary mb-1">Telegram Username</label><div className="relative"><span className="absolute left-3 top-1/2 -translate-y-1/2 text-cave-text-muted">@</span><input type="text" value={telegramUsername} onChange={(e) => setTelegramUsername(e.target.value.replace('@', ''))} placeholder="username" className="w-full pl-8 pr-3 py-2 bg-cave-bg-elevated border border-cave-border rounded-lg text-cave-text-primary focus:outline-none focus:border-cave-gold" /></div></div>
             <div className="flex justify-between items-center pt-4">
-              <div>
+              <div className="flex items-center gap-2">
                 {canOffboard && (
                   <button type="button" onClick={() => setShowOffboardModal(true)} className="flex items-center gap-2 px-4 py-2 text-cave-status-warning hover:bg-cave-status-warning/10 rounded-lg transition-colors">
                     <UserMinus className="w-4 h-4" />
-                    Offboard Member
+                    Offboard
+                  </button>
+                )}
+                {canBlacklist && (
+                  <button type="button" onClick={() => setShowBlacklistModal(true)} className="flex items-center gap-2 px-4 py-2 text-red-400 hover:bg-red-500/10 rounded-lg transition-colors">
+                    <ShieldBan className="w-4 h-4" />
+                    Blacklist
                   </button>
                 )}
               </div>
@@ -245,6 +311,9 @@ function MemberModal({ member, onClose, onSave }: { member: Member | null; onClo
       </div>
       {showOffboardModal && member && (
         <OffboardConfirmModal member={member} onClose={() => setShowOffboardModal(false)} onConfirm={() => offboardMember.mutate()} isLoading={offboardMember.isPending} />
+      )}
+      {showBlacklistModal && member && (
+        <BlacklistConfirmModal member={member} onClose={() => setShowBlacklistModal(false)} onConfirm={() => blacklistMember.mutate()} isLoading={blacklistMember.isPending} />
       )}
     </>
   )
@@ -307,7 +376,7 @@ export function EntitiesPage() {
 
   const filteredMembers = members.filter(member => {
     const matchesSearch = !searchQuery || searchQuery.length < 2 || member.first_name?.toLowerCase().includes(searchQuery.toLowerCase()) || member.last_name?.toLowerCase().includes(searchQuery.toLowerCase()) || member.email?.toLowerCase().includes(searchQuery.toLowerCase()) || member.member_id?.toLowerCase().includes(searchQuery.toLowerCase())
-    const matchesFilter = statusFilter === 'All' || member.status?.toUpperCase() === statusFilter.toUpperCase()
+    const matchesFilter = statusFilter === 'All' ? !member.blacklisted : statusFilter === 'Blacklisted' ? member.blacklisted : !member.blacklisted && member.status?.toUpperCase() === statusFilter.toUpperCase()
     return matchesSearch && matchesFilter
   })
 
@@ -415,7 +484,7 @@ export function EntitiesPage() {
                         <td className="px-4 py-3">{member.business_arena ? <span className="px-2 py-1 rounded-full text-xs font-medium bg-cave-bg-elevated text-cave-text-secondary">{member.business_arena}</span> : <span className="text-cave-text-muted">-</span>}</td>
                         <td className="px-4 py-3 text-sm text-cave-text-secondary">{member.city && member.country ? `${member.city}, ${member.country}` : member.city || member.country || '-'}</td>
                         <td className="px-4 py-3"><HealthScoreBadge score={member.health_score || 0} /></td>
-                        <td className="px-4 py-3"><span className={cn("px-2 py-1 rounded-full text-xs font-medium", member.status === 'ACTIVE' ? 'bg-cave-status-success/20 text-cave-status-success' : member.status === 'INACTIVE' ? 'bg-cave-status-warning/20 text-cave-status-warning' : member.status === 'CHURNED' ? 'bg-cave-status-error/20 text-cave-status-error' : 'bg-cave-bg-elevated text-cave-text-secondary')}>{member.status || 'Unknown'}</span></td>
+                        <td className="px-4 py-3"><span className={cn("px-2 py-1 rounded-full text-xs font-medium", member.blacklisted ? 'bg-red-500/20 text-red-400' : member.status === 'ACTIVE' ? 'bg-cave-status-success/20 text-cave-status-success' : member.status === 'INACTIVE' ? 'bg-cave-status-warning/20 text-cave-status-warning' : member.status === 'CHURNED' ? 'bg-cave-status-error/20 text-cave-status-error' : 'bg-cave-bg-elevated text-cave-text-secondary')}>{member.blacklisted ? 'Blacklisted' : member.status || 'Unknown'}</span></td>
                         <td className="px-4 py-3"><button onClick={(e) => { e.stopPropagation(); setPreviewMember(previewMember?.id === member.id ? null : member) }} className="p-2 hover:bg-cave-bg-elevated rounded-lg transition-colors"><MoreHorizontal className="w-4 h-4 text-cave-text-muted" /></button></td>
                       </tr>
                     ))}

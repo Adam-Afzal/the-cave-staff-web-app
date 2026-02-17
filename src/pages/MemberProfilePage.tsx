@@ -22,6 +22,8 @@ import {
   CreditCard,
   CalendarDays,
   RefreshCw,
+  ShieldBan,
+  DollarSign,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { cn, getInitials } from '../lib/utils'
@@ -94,7 +96,7 @@ function EditMembershipModal({
   member,
   onClose
 }: {
-  member: { id: string; join_date: string; renewal_date: string | null; membership_type: MembershipType | null }
+  member: { id: string; join_date: string; renewal_date: string | null; membership_type: MembershipType | null; amount_paid: number | null }
   onClose: () => void
 }) {
   const queryClient = useQueryClient()
@@ -103,9 +105,10 @@ function EditMembershipModal({
   const [joinDate, setJoinDate] = useState(toDateInput(member.join_date))
   const [renewalDate, setRenewalDate] = useState(toDateInput(member.renewal_date))
   const [membershipType, setMembershipType] = useState<MembershipType | ''>(member.membership_type || '')
+  const [amountPaid, setAmountPaid] = useState(member.amount_paid?.toString() || '')
 
   const updateMutation = useMutation({
-    mutationFn: async (updates: { join_date: string; renewal_date: string | null; membership_type: string | null }) => {
+    mutationFn: async (updates: { join_date: string; renewal_date: string | null; membership_type: string | null; amount_paid: number | null }) => {
       const { error } = await supabase
         .from('members')
         .update(updates)
@@ -124,6 +127,7 @@ function EditMembershipModal({
       join_date: joinDate,
       renewal_date: renewalDate || null,
       membership_type: membershipType || null,
+      amount_paid: amountPaid ? parseFloat(amountPaid) : null,
     })
   }
 
@@ -175,6 +179,19 @@ function EditMembershipModal({
               className="input w-full"
             />
           </div>
+
+          <div>
+            <label className="input-label">Amount Paid ($)</label>
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              value={amountPaid}
+              onChange={(e) => setAmountPaid(e.target.value)}
+              placeholder="0.00"
+              className="input w-full"
+            />
+          </div>
         </form>
 
         <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-cave-border">
@@ -195,7 +212,24 @@ function EditMembershipModal({
 export function MemberProfilePage() {
   const { memberId } = useParams<{ memberId: string }>()
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const [showEditModal, setShowEditModal] = useState(false)
+  const [showBlacklistModal, setShowBlacklistModal] = useState(false)
+
+  const blacklistMember = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase
+        .from('members')
+        .update({ blacklisted: true, status: 'INACTIVE' })
+        .eq('id', memberId)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['member', memberId] })
+      queryClient.invalidateQueries({ queryKey: ['members'] })
+      setShowBlacklistModal(false)
+    }
+  })
 
   // Fetch member data with telegram info
   const { data: member, isLoading: memberLoading } = useQuery({
@@ -386,15 +420,21 @@ export function MemberProfilePage() {
                   </p>
                 )}
                 <div className="flex items-center gap-3 mt-2">
-                  <span className={cn(
-                    "px-3 py-1 rounded-full text-sm font-medium",
-                    member.status === 'ACTIVE' ? 'bg-cave-status-success/20 text-cave-status-success' : 
-                    member.status === 'INACTIVE' ? 'bg-cave-status-warning/20 text-cave-status-warning' :
-                    member.status === 'CHURNED' ? 'bg-cave-status-error/20 text-cave-status-error' : 
-                    'bg-cave-bg-elevated text-cave-text-secondary'
-                  )}>
-                    {member.status}
-                  </span>
+                  {member.blacklisted ? (
+                    <span className="px-3 py-1 rounded-full text-sm font-medium bg-red-500/20 text-red-400">
+                      Blacklisted
+                    </span>
+                  ) : (
+                    <span className={cn(
+                      "px-3 py-1 rounded-full text-sm font-medium",
+                      member.status === 'ACTIVE' ? 'bg-cave-status-success/20 text-cave-status-success' :
+                      member.status === 'INACTIVE' ? 'bg-cave-status-warning/20 text-cave-status-warning' :
+                      member.status === 'CHURNED' ? 'bg-cave-status-error/20 text-cave-status-error' :
+                      'bg-cave-bg-elevated text-cave-text-secondary'
+                    )}>
+                      {member.status}
+                    </span>
+                  )}
                   {member.wealth_tier && (
                     <span className={cn(
                       "px-3 py-1 rounded-full text-sm font-medium",
@@ -402,6 +442,15 @@ export function MemberProfilePage() {
                     )}>
                       {member.wealth_tier}
                     </span>
+                  )}
+                  {!member.blacklisted && (
+                    <button
+                      onClick={() => setShowBlacklistModal(true)}
+                      className="flex items-center gap-1.5 px-3 py-1 text-sm text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
+                    >
+                      <ShieldBan className="w-4 h-4" />
+                      Blacklist
+                    </button>
                   )}
                 </div>
               </div>
@@ -625,7 +674,7 @@ export function MemberProfilePage() {
             Edit
           </button>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-5 gap-4">
           <div className="flex items-start gap-3">
             <div className="p-2 rounded-lg bg-cave-bg-elevated">
               <CreditCard className="w-4 h-4 text-cave-text-muted" />
@@ -670,6 +719,17 @@ export function MemberProfilePage() {
           </div>
           <div className="flex items-start gap-3">
             <div className="p-2 rounded-lg bg-cave-bg-elevated">
+              <DollarSign className="w-4 h-4 text-cave-text-muted" />
+            </div>
+            <div>
+              <p className="text-xs text-cave-text-muted uppercase tracking-wider">Amount Paid</p>
+              <p className="text-cave-text-primary font-medium">
+                {member.amount_paid != null ? `$${Number(member.amount_paid).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : <span className="text-cave-text-muted">Not set</span>}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-start gap-3">
+            <div className="p-2 rounded-lg bg-cave-bg-elevated">
               <Clock className="w-4 h-4 text-cave-text-muted" />
             </div>
             <div>
@@ -686,6 +746,37 @@ export function MemberProfilePage() {
           member={member}
           onClose={() => setShowEditModal(false)}
         />
+      )}
+
+      {/* Blacklist Confirmation Modal */}
+      {showBlacklistModal && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+          <div className="bg-cave-bg-secondary border border-cave-border rounded-xl w-full max-w-md overflow-hidden">
+            <div className="p-6">
+              <div className="flex items-center justify-center w-12 h-12 rounded-full bg-red-500/20 mx-auto mb-4">
+                <ShieldBan className="w-6 h-6 text-red-400" />
+              </div>
+              <h2 className="text-lg font-semibold text-cave-text-primary text-center mb-2">Blacklist Member</h2>
+              <p className="text-cave-text-secondary text-center mb-4">
+                Are you sure you want to blacklist <span className="font-medium text-cave-text-primary">{member.first_name} {member.last_name}</span>?
+              </p>
+              <div className="bg-cave-bg-elevated rounded-lg p-4 mb-6">
+                <p className="text-sm text-cave-text-secondary">
+                  This will mark the member as <span className="font-medium text-red-400">blacklisted</span> and <span className="font-medium text-cave-status-warning">inactive</span>.
+                </p>
+              </div>
+              <div className="flex gap-3">
+                <button type="button" onClick={() => setShowBlacklistModal(false)} disabled={blacklistMember.isPending} className="flex-1 px-4 py-2 text-cave-text-secondary hover:text-cave-text-primary border border-cave-border rounded-lg hover:bg-cave-bg-elevated disabled:opacity-50">
+                  Cancel
+                </button>
+                <button type="button" onClick={() => blacklistMember.mutate()} disabled={blacklistMember.isPending} className="flex-1 px-4 py-2 bg-red-500 text-white rounded-lg font-medium hover:bg-red-500/90 disabled:opacity-50 flex items-center justify-center gap-2">
+                  {blacklistMember.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShieldBan className="w-4 h-4" />}
+                  {blacklistMember.isPending ? 'Blacklisting...' : 'Blacklist'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )

@@ -455,16 +455,20 @@ function CallHistoryCard({
 
         <div className="flex items-center gap-2">
           <span className="text-sm text-cave-text-muted">{formatDate(call.date)}</span>
-          {call.recording && (
-            <a 
-              href={call.recording} 
-              target="_blank" 
+          {call.recording === 'whatsapp' ? (
+            <span className="px-2 py-0.5 bg-green-500/10 text-green-400 text-xs font-medium rounded border border-green-500/20">
+              WhatsApp
+            </span>
+          ) : call.recording ? (
+            <a
+              href={call.recording}
+              target="_blank"
               rel="noopener noreferrer"
               className="p-1.5 text-cave-text-muted hover:text-cave-gold"
             >
               <ExternalLink className="w-4 h-4" />
             </a>
-          )}
+          ) : null}
         </div>
       </div>
 
@@ -509,6 +513,7 @@ function LogCallForm({
   onSuccess: () => void
   onCancel: () => void
 }) {
+  const [callType, setCallType] = useState<'fathom' | 'whatsapp'>('fathom')
   const [formData, setFormData] = useState({
     recording: '',
     date: new Date().toISOString().slice(0, 16),
@@ -521,10 +526,12 @@ function LogCallForm({
     e.preventDefault()
     setIsSubmitting(true)
 
+    const recordingValue = callType === 'fathom' ? (formData.recording || null) : 'whatsapp'
+
     try {
       const { error } = await supabase.from('client_call').insert({
         member_id: member.id,
-        recording: formData.recording || null,
+        recording: recordingValue,
         date: formData.date ? new Date(formData.date).toISOString() : null,
         notes: formData.notes || null,
         feedback: formData.feedback || null,
@@ -582,16 +589,50 @@ function LogCallForm({
 
         <div>
           <label className="block text-sm text-cave-text-secondary mb-1">
-            Fathom Recording URL
+            Call Type
           </label>
-          <input
-            type="url"
-            value={formData.recording}
-            onChange={(e) => setFormData({ ...formData, recording: e.target.value })}
-            className="w-full px-3 py-2 bg-cave-bg-elevated border border-cave-border rounded-lg text-cave-text-primary"
-            placeholder="https://fathom.video/share/..."
-          />
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => { setCallType('fathom'); setFormData({ ...formData, recording: '' }) }}
+              className={cn(
+                "flex-1 px-3 py-2 text-sm font-medium rounded-lg border transition-colors",
+                callType === 'fathom'
+                  ? "bg-cave-gold/10 border-cave-gold text-cave-gold"
+                  : "bg-cave-bg-elevated border-cave-border text-cave-text-secondary hover:border-cave-gold/30"
+              )}
+            >
+              Fathom Recording
+            </button>
+            <button
+              type="button"
+              onClick={() => { setCallType('whatsapp'); setFormData({ ...formData, recording: '' }) }}
+              className={cn(
+                "flex-1 px-3 py-2 text-sm font-medium rounded-lg border transition-colors",
+                callType === 'whatsapp'
+                  ? "bg-green-500/10 border-green-500 text-green-400"
+                  : "bg-cave-bg-elevated border-cave-border text-cave-text-secondary hover:border-green-500/30"
+              )}
+            >
+              WhatsApp Call
+            </button>
+          </div>
         </div>
+
+        {callType === 'fathom' && (
+          <div>
+            <label className="block text-sm text-cave-text-secondary mb-1">
+              Fathom Recording URL
+            </label>
+            <input
+              type="url"
+              value={formData.recording}
+              onChange={(e) => setFormData({ ...formData, recording: e.target.value })}
+              className="w-full px-3 py-2 bg-cave-bg-elevated border border-cave-border rounded-lg text-cave-text-primary"
+              placeholder="https://fathom.video/share/..."
+            />
+          </div>
+        )}
 
         <div>
           <label className="block text-sm text-cave-text-secondary mb-1">
@@ -650,8 +691,11 @@ function EditCallForm({
   onSuccess: () => void
   onCancel: () => void
 }) {
+  const [callType, setCallType] = useState<'fathom' | 'whatsapp'>(
+    call.recording === 'whatsapp' ? 'whatsapp' : 'fathom'
+  )
   const [formData, setFormData] = useState({
-    recording: call.recording || '',
+    recording: call.recording === 'whatsapp' ? '' : (call.recording || ''),
     date: call.date ? new Date(call.date).toISOString().slice(0, 16) : '',
     notes: call.notes || '',
     feedback: call.feedback || '',
@@ -659,8 +703,9 @@ function EditCallForm({
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   useEffect(() => {
+    setCallType(call.recording === 'whatsapp' ? 'whatsapp' : 'fathom')
     setFormData({
-      recording: call.recording || '',
+      recording: call.recording === 'whatsapp' ? '' : (call.recording || ''),
       date: call.date ? new Date(call.date).toISOString().slice(0, 16) : '',
       notes: call.notes || '',
       feedback: call.feedback || '',
@@ -671,11 +716,13 @@ function EditCallForm({
     e.preventDefault()
     setIsSubmitting(true)
 
+    const recordingValue = callType === 'fathom' ? (formData.recording || null) : 'whatsapp'
+
     try {
       const { error } = await supabase
         .from('client_call')
         .update({
-          recording: formData.recording || null,
+          recording: recordingValue,
           date: formData.date ? new Date(formData.date).toISOString() : null,
           notes: formData.notes || null,
           feedback: formData.feedback || null,
@@ -735,27 +782,61 @@ function EditCallForm({
 
         <div>
           <label className="block text-sm text-cave-text-secondary mb-1">
-            Fathom Recording URL
+            Call Type
           </label>
-          <input
-            type="url"
-            value={formData.recording}
-            onChange={(e) => setFormData({ ...formData, recording: e.target.value })}
-            className="w-full px-3 py-2 bg-cave-bg-elevated border border-cave-border rounded-lg text-cave-text-primary"
-            placeholder="https://fathom.video/share/..."
-          />
-          {formData.recording && (
-            <a 
-              href={formData.recording}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 mt-1 text-xs text-cave-gold hover:underline"
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => { setCallType('fathom'); setFormData({ ...formData, recording: '' }) }}
+              className={cn(
+                "flex-1 px-3 py-2 text-sm font-medium rounded-lg border transition-colors",
+                callType === 'fathom'
+                  ? "bg-cave-gold/10 border-cave-gold text-cave-gold"
+                  : "bg-cave-bg-elevated border-cave-border text-cave-text-secondary hover:border-cave-gold/30"
+              )}
             >
-              <ExternalLink className="w-3 h-3" />
-              Open recording
-            </a>
-          )}
+              Fathom Recording
+            </button>
+            <button
+              type="button"
+              onClick={() => { setCallType('whatsapp'); setFormData({ ...formData, recording: '' }) }}
+              className={cn(
+                "flex-1 px-3 py-2 text-sm font-medium rounded-lg border transition-colors",
+                callType === 'whatsapp'
+                  ? "bg-green-500/10 border-green-500 text-green-400"
+                  : "bg-cave-bg-elevated border-cave-border text-cave-text-secondary hover:border-green-500/30"
+              )}
+            >
+              WhatsApp Call
+            </button>
+          </div>
         </div>
+
+        {callType === 'fathom' && (
+          <div>
+            <label className="block text-sm text-cave-text-secondary mb-1">
+              Fathom Recording URL
+            </label>
+            <input
+              type="url"
+              value={formData.recording}
+              onChange={(e) => setFormData({ ...formData, recording: e.target.value })}
+              className="w-full px-3 py-2 bg-cave-bg-elevated border border-cave-border rounded-lg text-cave-text-primary"
+              placeholder="https://fathom.video/share/..."
+            />
+            {formData.recording && (
+              <a
+                href={formData.recording}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 mt-1 text-xs text-cave-gold hover:underline"
+              >
+                <ExternalLink className="w-3 h-3" />
+                Open recording
+              </a>
+            )}
+          </div>
+        )}
 
         <div>
           <label className="block text-sm text-cave-text-secondary mb-1">

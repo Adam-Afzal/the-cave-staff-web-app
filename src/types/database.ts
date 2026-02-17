@@ -37,11 +37,13 @@ export interface Member {
   join_date: string
   renewal_date: string | null
   membership_type: MembershipType | null
+  amount_paid: number | null
   status: MemberStatus
   health_score: number
   intro_posted: boolean
   value_posted: boolean
   notes: string | null
+  blacklisted: boolean
   created_at: string
   updated_at: string,
   member_id: string

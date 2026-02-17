@@ -240,6 +240,9 @@ export function OnboardingFormPage() {
               
               // Telegram
               telegram_username: formData.telegram_username || '',
+
+              // Philanthropy
+              philanthropy_interest: formData.philanthropy_interest ? 'Yes' : 'No',
               
               // Add any custom fields dynamically
               ...Object.fromEntries(
@@ -253,7 +256,8 @@ export function OnboardingFormPage() {
                     'bottlenecks', 'outside_business', 'support', 'side_assets',
                     'hidden_talents', 'offer_summary', 'referral_prospects',
                     'twelve_month_success', 'own_description', 'youtube_topics',
-                    'weekly_calls_interest', 'board_room', 'telegram_username'
+                    'weekly_calls_interest', 'board_room', 'telegram_username',
+                    'philanthropy_interest'
                   ].includes(key))
                   .map(([key, value]) => [
                     `custom_${key}`,
@@ -458,6 +462,15 @@ export function OnboardingFormPage() {
                       </option>
                     ))}
                   </select>
+                )}
+
+                {question.field_type === 'boolean' && (
+                  <input
+                    type="checkbox"
+                    checked={!!formData[question.field_name]}
+                    onChange={(e) => handleChange(question.field_name, e.target.checked)}
+                    className="w-5 h-5 rounded border-[#2A2F36] bg-[#1A1F26] text-cave-gold focus:ring-cave-gold cursor-pointer"
+                  />
                 )}
 
                 {question.field_type === 'multiselect' && (
