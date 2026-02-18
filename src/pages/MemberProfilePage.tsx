@@ -24,6 +24,8 @@ import {
   RefreshCw,
   ShieldBan,
   DollarSign,
+  Briefcase,
+  Check,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { cn, getInitials } from '../lib/utils'
@@ -215,6 +217,8 @@ export function MemberProfilePage() {
   const queryClient = useQueryClient()
   const [showEditModal, setShowEditModal] = useState(false)
   const [showBlacklistModal, setShowBlacklistModal] = useState(false)
+  const [editingBackground, setEditingBackground] = useState(false)
+  const [backgroundDraft, setBackgroundDraft] = useState('')
 
   const blacklistMember = useMutation({
     mutationFn: async () => {
@@ -228,6 +232,20 @@ export function MemberProfilePage() {
       queryClient.invalidateQueries({ queryKey: ['member', memberId] })
       queryClient.invalidateQueries({ queryKey: ['members'] })
       setShowBlacklistModal(false)
+    }
+  })
+
+  const updateBackground = useMutation({
+    mutationFn: async (value: string) => {
+      const { error } = await supabase
+        .from('members')
+        .update({ professional_background: value || null })
+        .eq('id', memberId)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['member', memberId] })
+      setEditingBackground(false)
     }
   })
 
@@ -494,8 +512,60 @@ export function MemberProfilePage() {
             <SectionHeader icon={Building2} title="Business Information" />
             <div className="space-y-4">
               <InfoCard icon={Building2} label="Business Arena" value={member.business_arena} />
+
+              {/* Professional Background - editable */}
+              <div className="flex items-start gap-3">
+                <div className="p-2 rounded-lg bg-cave-bg-elevated">
+                  <Briefcase className="w-4 h-4 text-cave-text-muted" />
+                </div>
+                <div className="flex-1">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs text-cave-text-muted uppercase tracking-wider">Professional Background</p>
+                    {!editingBackground && (
+                      <button
+                        onClick={() => { setBackgroundDraft(member.professional_background || ''); setEditingBackground(true) }}
+                        className="p-1 rounded text-cave-text-muted hover:text-cave-text-primary hover:bg-cave-bg-elevated transition-colors"
+                      >
+                        <Pencil className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+                  {editingBackground ? (
+                    <div className="mt-1 space-y-2">
+                      <textarea
+                        value={backgroundDraft}
+                        onChange={(e) => setBackgroundDraft(e.target.value)}
+                        rows={4}
+                        className="input w-full resize-none"
+                        placeholder="Enter professional background..."
+                      />
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => updateBackground.mutate(backgroundDraft)}
+                          disabled={updateBackground.isPending}
+                          className="btn-primary text-xs px-3 py-1.5 flex items-center gap-1"
+                        >
+                          <Check className="w-3.5 h-3.5" />
+                          {updateBackground.isPending ? 'Saving...' : 'Save'}
+                        </button>
+                        <button
+                          onClick={() => setEditingBackground(false)}
+                          className="btn-ghost text-xs px-3 py-1.5"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-cave-text-primary font-medium whitespace-pre-wrap">
+                      {member.professional_background || <span className="text-cave-text-muted italic">Not set</span>}
+                    </p>
+                  )}
+                </div>
+              </div>
+
               {member.linkedin_url && (
-                <a 
+                <a
                   href={member.linkedin_url}
                   target="_blank"
                   rel="noopener noreferrer"

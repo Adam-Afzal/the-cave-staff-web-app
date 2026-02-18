@@ -225,6 +225,7 @@ function MemberModal({ member, onClose, onSave }: { member: Member | null; onClo
   const [country, setCountry] = useState(member?.country || '')
   const [joinDate, setJoinDate] = useState(member?.join_date?.split('T')[0] || new Date().toISOString().split('T')[0])
   const [telegramUsername, setTelegramUsername] = useState(member?.member_telegram?.telegram_username || '')
+  const [professionalBackground, setProfessionalBackground] = useState(member?.professional_background || '')
   const [showOffboardModal, setShowOffboardModal] = useState(false)
   const [showBlacklistModal, setShowBlacklistModal] = useState(false)
 
@@ -252,7 +253,7 @@ function MemberModal({ member, onClose, onSave }: { member: Member | null; onClo
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    onSave({ first_name: firstName || null, last_name: lastName || null, email: email || null, phone: phone || null, status, business_arena: businessArena || null, city: city || null, country: country || null, join_date: joinDate || null }, { telegram_username: telegramUsername || undefined })
+    onSave({ first_name: firstName || null, last_name: lastName || null, email: email || null, phone: phone || null, status, business_arena: businessArena || null, professional_background: professionalBackground || null, city: city || null, country: country || null, join_date: joinDate || null }, { telegram_username: telegramUsername || undefined })
   }
 
   const isEditing = !!member
@@ -281,6 +282,7 @@ function MemberModal({ member, onClose, onSave }: { member: Member | null; onClo
               <div><label className="block text-sm font-medium text-cave-text-secondary mb-1">Join Date</label><input type="date" value={joinDate} onChange={(e) => setJoinDate(e.target.value)} className="w-full px-3 py-2 bg-cave-bg-elevated border border-cave-border rounded-lg text-cave-text-primary focus:outline-none focus:border-cave-gold" /></div>
             </div>
             <div><label className="block text-sm font-medium text-cave-text-secondary mb-1">Business Arena</label><input type="text" value={businessArena} onChange={(e) => setBusinessArena(e.target.value)} className="w-full px-3 py-2 bg-cave-bg-elevated border border-cave-border rounded-lg text-cave-text-primary focus:outline-none focus:border-cave-gold" /></div>
+            <div><label className="block text-sm font-medium text-cave-text-secondary mb-1">Professional Background</label><textarea value={professionalBackground} onChange={(e) => setProfessionalBackground(e.target.value)} rows={3} placeholder="Enter professional background..." className="w-full px-3 py-2 bg-cave-bg-elevated border border-cave-border rounded-lg text-cave-text-primary focus:outline-none focus:border-cave-gold resize-none" /></div>
             <div className="grid grid-cols-2 gap-4">
               <div><label className="block text-sm font-medium text-cave-text-secondary mb-1">City</label><input type="text" value={city} onChange={(e) => setCity(e.target.value)} className="w-full px-3 py-2 bg-cave-bg-elevated border border-cave-border rounded-lg text-cave-text-primary focus:outline-none focus:border-cave-gold" /></div>
               <div><label className="block text-sm font-medium text-cave-text-secondary mb-1">Country</label><input type="text" value={country} onChange={(e) => setCountry(e.target.value)} className="w-full px-3 py-2 bg-cave-bg-elevated border border-cave-border rounded-lg text-cave-text-primary focus:outline-none focus:border-cave-gold" /></div>
