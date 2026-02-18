@@ -1,5 +1,5 @@
 // src/pages/MemberProfilePage.tsx
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
@@ -26,6 +26,7 @@ import {
   DollarSign,
   Briefcase,
   Check,
+  Camera,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { cn, getInitials } from '../lib/utils'
@@ -219,6 +220,42 @@ export function MemberProfilePage() {
   const [showBlacklistModal, setShowBlacklistModal] = useState(false)
   const [editingBackground, setEditingBackground] = useState(false)
   const [backgroundDraft, setBackgroundDraft] = useState('')
+  const [editingPhone, setEditingPhone] = useState(false)
+  const [phoneDraft, setPhoneDraft] = useState('')
+  const [uploadingAvatar, setUploadingAvatar] = useState(false)
+  const avatarInputRef = useRef<HTMLInputElement>(null)
+
+  const handleAvatarUpload = async (file: File) => {
+    if (!memberId) return
+    setUploadingAvatar(true)
+    try {
+      const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg'
+      const filePath = `${memberId}.${ext}`
+
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(filePath, file, { upsert: true })
+      if (uploadError) throw uploadError
+
+      const { data: urlData } = supabase.storage
+        .from('avatars')
+        .getPublicUrl(filePath)
+
+      const publicUrl = `${urlData.publicUrl}?t=${Date.now()}`
+      const { error: updateError } = await supabase
+        .from('members')
+        .update({ profile_picture_url: publicUrl })
+        .eq('id', memberId)
+      if (updateError) throw updateError
+
+      await queryClient.refetchQueries({ queryKey: ['member', memberId] })
+      queryClient.invalidateQueries({ queryKey: ['members'] })
+    } catch (err) {
+      console.error('Avatar upload failed:', err)
+    } finally {
+      setUploadingAvatar(false)
+    }
+  }
 
   const blacklistMember = useMutation({
     mutationFn: async () => {
@@ -235,17 +272,18 @@ export function MemberProfilePage() {
     }
   })
 
-  const updateBackground = useMutation({
-    mutationFn: async (value: string) => {
+  const updateMemberField = useMutation({
+    mutationFn: async (updates: Record<string, string | null>) => {
       const { error } = await supabase
         .from('members')
-        .update({ professional_background: value || null })
+        .update(updates)
         .eq('id', memberId)
       if (error) throw error
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['member', memberId] })
       setEditingBackground(false)
+      setEditingPhone(false)
     }
   })
 
@@ -259,7 +297,8 @@ export function MemberProfilePage() {
           *,
           member_telegram (
             telegram_id,
-            telegram_username
+            telegram_username,
+            avatar_url
           )
         `)
         .eq('id', memberId)
@@ -410,20 +449,44 @@ export function MemberProfilePage() {
       {/* Profile Header */}
       <div className="bg-cave-bg-secondary rounded-xl border border-cave-border p-6 mb-6">
         <div className="flex items-start gap-6">
-          {/* Avatar */}
-          {member.member_telegram?.avatar_url ? (
-            <img 
-              src={member.member_telegram.avatar_url} 
-              alt={`${member.first_name} ${member.last_name}`}
-              className="w-24 h-24 rounded-full object-cover flex-shrink-0"
+          {/* Avatar with upload */}
+          <div className="relative flex-shrink-0 group">
+            <input
+              ref={avatarInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0]
+                if (file) handleAvatarUpload(file)
+                e.target.value = ''
+              }}
             />
-          ) : (
-            <div className="w-24 h-24 rounded-full bg-cave-gold/20 flex items-center justify-center flex-shrink-0">
-              <span className="text-cave-gold font-bold text-3xl">
-                {getInitials(member.first_name, member.last_name)}
-              </span>
-            </div>
-          )}
+            {member.member_telegram?.avatar_url || member.profile_picture_url ? (
+              <img
+                src={member.member_telegram?.avatar_url || member.profile_picture_url}
+                alt={`${member.first_name} ${member.last_name}`}
+                className="w-24 h-24 rounded-full object-cover"
+              />
+            ) : (
+              <div className="w-24 h-24 rounded-full bg-cave-gold/20 flex items-center justify-center">
+                <span className="text-cave-gold font-bold text-3xl">
+                  {getInitials(member.first_name, member.last_name)}
+                </span>
+              </div>
+            )}
+            <button
+              onClick={() => avatarInputRef.current?.click()}
+              disabled={uploadingAvatar}
+              className="absolute inset-0 rounded-full bg-black/0 group-hover:bg-black/40 flex items-center justify-center transition-colors cursor-pointer"
+            >
+              {uploadingAvatar ? (
+                <Loader2 className="w-6 h-6 text-white animate-spin" />
+              ) : (
+                <Camera className="w-6 h-6 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+              )}
+            </button>
+          </div>
 
           {/* Info */}
           <div className="flex-1">
@@ -492,7 +555,57 @@ export function MemberProfilePage() {
             <SectionHeader icon={User} title="Contact Information" />
             <div className="space-y-4">
               <InfoCard icon={Mail} label="Email" value={member.email} />
-              <InfoCard icon={Phone} label="Phone" value={member.phone} />
+
+              {/* Phone - editable */}
+              <div className="flex items-start gap-3">
+                <div className="p-2 rounded-lg bg-cave-bg-elevated">
+                  <Phone className="w-4 h-4 text-cave-text-muted" />
+                </div>
+                <div className="flex-1">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs text-cave-text-muted uppercase tracking-wider">Phone</p>
+                    {!editingPhone && (
+                      <button
+                        onClick={() => { setPhoneDraft(member.phone || ''); setEditingPhone(true) }}
+                        className="p-1 rounded text-cave-text-muted hover:text-cave-text-primary hover:bg-cave-bg-elevated transition-colors"
+                      >
+                        <Pencil className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+                  {editingPhone ? (
+                    <div className="mt-1 space-y-2">
+                      <input
+                        type="tel"
+                        value={phoneDraft}
+                        onChange={(e) => setPhoneDraft(e.target.value)}
+                        className="input w-full"
+                        placeholder="Enter phone number..."
+                      />
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => updateMemberField.mutate({ phone: phoneDraft || null })}
+                          disabled={updateMemberField.isPending}
+                          className="btn-primary text-xs px-3 py-1.5 flex items-center gap-1"
+                        >
+                          <Check className="w-3.5 h-3.5" />
+                          {updateMemberField.isPending ? 'Saving...' : 'Save'}
+                        </button>
+                        <button
+                          onClick={() => setEditingPhone(false)}
+                          className="btn-ghost text-xs px-3 py-1.5"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-cave-text-primary font-medium">
+                      {member.phone || <span className="text-cave-text-muted italic">Not set</span>}
+                    </p>
+                  )}
+                </div>
+              </div>
               <InfoCard 
                 icon={MapPin} 
                 label="Location" 
@@ -541,12 +654,12 @@ export function MemberProfilePage() {
                       />
                       <div className="flex items-center gap-2">
                         <button
-                          onClick={() => updateBackground.mutate(backgroundDraft)}
-                          disabled={updateBackground.isPending}
+                          onClick={() => updateMemberField.mutate({ professional_background: backgroundDraft || null })}
+                          disabled={updateMemberField.isPending}
                           className="btn-primary text-xs px-3 py-1.5 flex items-center gap-1"
                         >
                           <Check className="w-3.5 h-3.5" />
-                          {updateBackground.isPending ? 'Saving...' : 'Save'}
+                          {updateMemberField.isPending ? 'Saving...' : 'Save'}
                         </button>
                         <button
                           onClick={() => setEditingBackground(false)}

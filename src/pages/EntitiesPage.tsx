@@ -18,9 +18,10 @@ interface ThirdParty {
 interface Member {
   id: string; first_name: string | null; last_name: string | null; email: string | null
   phone: string | null; member_id: string | null; status: string | null
-  business_arena: string | null; city: string | null; country: string | null
+  business_arena: string | null; professional_background: string | null; city: string | null; country: string | null
   join_date: string | null; health_score: number | null; wealth_tier: string | null; created_at: string
   blacklisted: boolean
+  profile_picture_url: string | null
   member_telegram?: { telegram_id: string | null; telegram_username: string | null; avatar_url: string | null } | null
 }
 
@@ -326,7 +327,7 @@ function MemberPreviewSidebar({ member, onClose, onViewProfile, onEdit }: { memb
     <div className="w-80 bg-cave-bg-secondary rounded-xl border border-cave-border p-4 h-fit">
       <div className="flex justify-end mb-2"><button onClick={onClose} className="p-1 hover:bg-cave-bg-elevated rounded"><X className="w-4 h-4 text-cave-text-muted" /></button></div>
       <div className="text-center mb-4">
-        {member.member_telegram?.avatar_url ? (<img src={member.member_telegram.avatar_url} alt="" className="w-16 h-16 rounded-full object-cover mx-auto mb-3" />) : (<div className="w-16 h-16 rounded-full bg-cave-gold/20 flex items-center justify-center mx-auto mb-3"><span className="text-cave-gold font-bold text-xl">{getInitials(member.first_name || '', member.last_name || '')}</span></div>)}
+        {member.member_telegram?.avatar_url || member.profile_picture_url ? (<img src={member.member_telegram?.avatar_url || member.profile_picture_url || ''} alt="" className="w-16 h-16 rounded-full object-cover mx-auto mb-3" />) : (<div className="w-16 h-16 rounded-full bg-cave-gold/20 flex items-center justify-center mx-auto mb-3"><span className="text-cave-gold font-bold text-xl">{getInitials(member.first_name || '', member.last_name || '')}</span></div>)}
         <h3 className="text-lg font-semibold text-cave-text-primary">{member.first_name} {member.last_name}</h3>
         <p className="text-sm text-cave-text-secondary">{member.business_arena || 'No business arena'} • {member.city || 'Unknown'}</p>
         {member.member_id && <p className="text-xs font-mono text-cave-gold mt-1">{member.member_id}</p>}
@@ -478,7 +479,7 @@ export function EntitiesPage() {
                       <tr key={member.id} onClick={() => navigate(`/members/${member.id}`)} className={cn("hover:bg-cave-bg-elevated transition-colors cursor-pointer", previewMember?.id === member.id && "bg-cave-gold/5")}>
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-3">
-                            {member.member_telegram?.avatar_url ? (<img src={member.member_telegram.avatar_url} alt="" className="w-10 h-10 rounded-full object-cover" />) : (<div className="w-10 h-10 rounded-full bg-cave-gold/20 flex items-center justify-center"><span className="text-cave-gold font-medium text-sm">{getInitials(member.first_name || '', member.last_name || '')}</span></div>)}
+                            {member.member_telegram?.avatar_url || member.profile_picture_url ? (<img src={member.member_telegram?.avatar_url || member.profile_picture_url || ''} alt="" className="w-10 h-10 rounded-full object-cover" />) : (<div className="w-10 h-10 rounded-full bg-cave-gold/20 flex items-center justify-center"><span className="text-cave-gold font-medium text-sm">{getInitials(member.first_name || '', member.last_name || '')}</span></div>)}
                             <div><p className="font-medium text-cave-text-primary">{member.first_name} {member.last_name}</p><p className="text-xs text-cave-text-muted">{member.email}</p></div>
                           </div>
                         </td>
