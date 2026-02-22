@@ -44,6 +44,8 @@ export interface Member {
   value_posted: boolean
   notes: string | null
   blacklisted: boolean
+  primary_residence: string | null
+  secondary_residence: string | null
   created_at: string
   updated_at: string,
   member_id: string

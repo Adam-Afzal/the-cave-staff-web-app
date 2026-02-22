@@ -142,8 +142,7 @@ export function MembersPage() {
                     <tr>
                       <th>Member</th>
                       <th>Member ID</th>
-                      <th>Business Arena</th>
-                      <th>Location</th>
+                      <th>Primary Residence</th>
                       <th>Health Score</th>
                       <th>Status</th>
                       <th></th>
@@ -152,7 +151,7 @@ export function MembersPage() {
                   <tbody>
                     {filteredMembers.length === 0 ? (
                       <tr>
-                        <td colSpan={7} className="text-center text-cave-text-muted py-8">
+                        <td colSpan={6} className="text-center text-cave-text-muted py-8">
                           No members found
                         </td>
                       </tr>
@@ -191,18 +190,8 @@ export function MembersPage() {
                             )}
                           </td>
                           <td>
-                            {member.business_arena ? (
-                              <span className="badge-info">{member.business_arena}</span>
-                            ) : (
-                              <span className="text-cave-text-muted">-</span>
-                            )}
-                          </td>
-                          <td>
                             <span className="text-cave-text-secondary">
-                              {member.city && member.country 
-                                ? `${member.city}, ${member.country}`
-                                : member.city || member.country || '-'
-                              }
+                              {member.primary_residence || <span className="text-cave-text-muted">-</span>}
                             </span>
                           </td>
                           <td>

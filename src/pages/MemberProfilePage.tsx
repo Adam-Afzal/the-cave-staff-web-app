@@ -31,6 +31,8 @@ import {
 import { supabase } from '../lib/supabase'
 import { cn, getInitials } from '../lib/utils'
 import type { MembershipType } from '../types/database'
+import { LocationPickerModal } from '../components/LocationPickerModal'
+import { getLocationFlag } from '../data/locations'
 
 const MEMBERSHIP_TYPE_OPTIONS: MembershipType[] = ['Paid', 'Trial', 'B2B Partner']
 
@@ -224,6 +226,7 @@ export function MemberProfilePage() {
   const [phoneDraft, setPhoneDraft] = useState('')
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
   const avatarInputRef = useRef<HTMLInputElement>(null)
+  const [locationPickerTarget, setLocationPickerTarget] = useState<'primary_residence' | 'secondary_residence' | null>(null)
 
   const handleAvatarUpload = async (file: File) => {
     if (!memberId) return
@@ -606,11 +609,68 @@ export function MemberProfilePage() {
                   )}
                 </div>
               </div>
-              <InfoCard 
-                icon={MapPin} 
-                label="Location" 
-                value={member.city && member.country ? `${member.city}, ${member.country}` : member.city || member.country} 
+              <InfoCard
+                icon={MapPin}
+                label="Location"
+                value={member.city && member.country ? `${member.city}, ${member.country}` : member.city || member.country}
               />
+
+              {/* Primary Residence */}
+              <div className="flex items-start gap-3">
+                <div className="p-2 rounded-lg bg-cave-bg-elevated">
+                  <MapPin className="w-4 h-4 text-cave-text-muted" />
+                </div>
+                <div className="flex-1">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs text-cave-text-muted uppercase tracking-wider">Primary Residence</p>
+                    <button
+                      onClick={() => setLocationPickerTarget('primary_residence')}
+                      className="p-1 rounded text-cave-text-muted hover:text-cave-text-primary hover:bg-cave-bg-elevated transition-colors"
+                    >
+                      <Pencil className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                  <p className="text-cave-text-primary font-medium flex items-center gap-1.5">
+                    {member.primary_residence ? (
+                      <>
+                        <span className="text-base leading-none">{getLocationFlag(member.primary_residence)}</span>
+                        {member.primary_residence}
+                      </>
+                    ) : (
+                      <span className="text-cave-text-muted italic">Not set</span>
+                    )}
+                  </p>
+                </div>
+              </div>
+
+              {/* Secondary Residence */}
+              <div className="flex items-start gap-3">
+                <div className="p-2 rounded-lg bg-cave-bg-elevated">
+                  <MapPin className="w-4 h-4 text-cave-text-muted" />
+                </div>
+                <div className="flex-1">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs text-cave-text-muted uppercase tracking-wider">Secondary Residence</p>
+                    <button
+                      onClick={() => setLocationPickerTarget('secondary_residence')}
+                      className="p-1 rounded text-cave-text-muted hover:text-cave-text-primary hover:bg-cave-bg-elevated transition-colors"
+                    >
+                      <Pencil className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                  <p className="text-cave-text-primary font-medium flex items-center gap-1.5">
+                    {member.secondary_residence ? (
+                      <>
+                        <span className="text-base leading-none">{getLocationFlag(member.secondary_residence)}</span>
+                        {member.secondary_residence}
+                      </>
+                    ) : (
+                      <span className="text-cave-text-muted italic">Not set</span>
+                    )}
+                  </p>
+                </div>
+              </div>
+
               {member.member_telegram?.telegram_username && (
                 <InfoCard icon={MessageSquare} label="Telegram" value={`@${member.member_telegram.telegram_username}`} />
               )}
@@ -928,6 +988,18 @@ export function MemberProfilePage() {
         <EditMembershipModal
           member={member}
           onClose={() => setShowEditModal(false)}
+        />
+      )}
+
+      {/* Location Picker Modal */}
+      {locationPickerTarget && (
+        <LocationPickerModal
+          title={locationPickerTarget === 'primary_residence' ? 'Select Primary Residence' : 'Select Secondary Residence'}
+          value={member[locationPickerTarget]}
+          onSelect={(location) => {
+            updateMemberField.mutate({ [locationPickerTarget]: location })
+          }}
+          onClose={() => setLocationPickerTarget(null)}
         />
       )}
 
