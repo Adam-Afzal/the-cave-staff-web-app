@@ -3,10 +3,11 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import {
-  Users, Search, Plus, Edit2, Trash2, X, Loader2, Briefcase, Mail, Phone, MoreHorizontal, UserMinus, AlertTriangle, ShieldBan
+  Users, Search, Plus, Edit2, Trash2, X, Loader2, Briefcase, Mail, Phone, MoreHorizontal, UserMinus, AlertTriangle, ShieldBan, MapPin
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { cn, getInitials } from '../lib/utils'
+import { getLocationFlag } from '../data/locations'
 
 interface ThirdParty {
   id: string; name: string; email: string | null; phone: string | null
@@ -19,6 +20,7 @@ interface Member {
   id: string; first_name: string | null; last_name: string | null; email: string | null
   phone: string | null; member_id: string | null; status: string | null
   business_arena: string | null; professional_background: string | null; city: string | null; country: string | null
+  primary_residence: string | null; secondary_residence: string | null
   join_date: string | null; health_score: number | null; wealth_tier: string | null; created_at: string
   blacklisted: boolean
   profile_picture_url: string | null
@@ -26,7 +28,7 @@ interface Member {
 }
 
 type TabType = 'members' | 'third-parties'
-const statusFilters = ['All', 'Active', 'Inactive', 'Pending', 'Churned', 'Blacklisted']
+const statusFilters = ['Active', 'Inactive', 'Pending', 'Churned', 'Blacklisted', 'All']
 
 function HealthScoreBadge({ score }: { score: number }) {
   return (
@@ -352,7 +354,8 @@ export function EntitiesPage() {
   const queryClient = useQueryClient()
   const [activeTab, setActiveTab] = useState<TabType>('members')
   const [searchQuery, setSearchQuery] = useState('')
-  const [statusFilter, setStatusFilter] = useState('All')
+  const [locationQuery, setLocationQuery] = useState('')
+  const [statusFilter, setStatusFilter] = useState('Active')
   const [showThirdPartyModal, setShowThirdPartyModal] = useState(false)
   const [showMemberModal, setShowMemberModal] = useState(false)
   const [editingThirdParty, setEditingThirdParty] = useState<ThirdParty | null>(null)
@@ -377,11 +380,20 @@ export function EntitiesPage() {
     }
   })
 
-  const filteredMembers = members.filter(member => {
-    const matchesSearch = !searchQuery || searchQuery.length < 2 || member.first_name?.toLowerCase().includes(searchQuery.toLowerCase()) || member.last_name?.toLowerCase().includes(searchQuery.toLowerCase()) || member.email?.toLowerCase().includes(searchQuery.toLowerCase()) || member.member_id?.toLowerCase().includes(searchQuery.toLowerCase())
-    const matchesFilter = statusFilter === 'All' ? !member.blacklisted : statusFilter === 'Blacklisted' ? member.blacklisted : !member.blacklisted && member.status?.toUpperCase() === statusFilter.toUpperCase()
-    return matchesSearch && matchesFilter
-  })
+  const locationQ = locationQuery.trim().toLowerCase()
+  const filteredMembers = members
+    .filter(member => {
+      const matchesSearch = !searchQuery || searchQuery.length < 2 || member.first_name?.toLowerCase().includes(searchQuery.toLowerCase()) || member.last_name?.toLowerCase().includes(searchQuery.toLowerCase()) || member.email?.toLowerCase().includes(searchQuery.toLowerCase()) || member.member_id?.toLowerCase().includes(searchQuery.toLowerCase())
+      const matchesFilter = statusFilter === 'All' ? !member.blacklisted : statusFilter === 'Blacklisted' ? member.blacklisted : !member.blacklisted && member.status?.toUpperCase() === statusFilter.toUpperCase()
+      const matchesLocation = !locationQ || locationQ.length < 2 || member.primary_residence?.toLowerCase().includes(locationQ) || member.secondary_residence?.toLowerCase().includes(locationQ)
+      return matchesSearch && matchesFilter && matchesLocation
+    })
+    .map(member => {
+      if (!locationQ || locationQ.length < 2) return { ...member, locationMatchType: null as null }
+      const primaryMatches = member.primary_residence?.toLowerCase().includes(locationQ)
+      const secondaryMatches = member.secondary_residence?.toLowerCase().includes(locationQ)
+      return { ...member, locationMatchType: primaryMatches ? 'primary' as const : secondaryMatches ? 'secondary' as const : null }
+    })
 
   const filteredThirdParties = thirdParties.filter(tp => !searchQuery || searchQuery.length < 2 || tp.name?.toLowerCase().includes(searchQuery.toLowerCase()) || tp.email?.toLowerCase().includes(searchQuery.toLowerCase()) || tp.company?.toLowerCase().includes(searchQuery.toLowerCase()))
 
@@ -445,15 +457,23 @@ export function EntitiesPage() {
         <button onClick={() => setActiveTab('third-parties')} className={cn("flex items-center gap-2 px-4 py-3 border-b-2 transition-colors", activeTab === 'third-parties' ? "border-cave-gold text-cave-gold" : "border-transparent text-cave-text-secondary hover:text-cave-text-primary")}><Briefcase className="w-5 h-5" />Third Parties</button>
       </div>
 
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-4">
         {activeTab === 'members' ? (
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             {statusFilters.map((filter) => (<button key={filter} onClick={() => setStatusFilter(filter)} className={cn("px-3 py-1.5 rounded-lg text-sm font-medium transition-colors", statusFilter === filter ? "bg-cave-gold text-cave-bg-primary" : "text-cave-text-secondary hover:bg-cave-bg-elevated")}>{filter}</button>))}
           </div>
         ) : <div />}
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-cave-text-muted" />
-          <input type="text" placeholder={`Search ${activeTab === 'members' ? 'members' : 'third parties'}...`} value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-64 pl-10 pr-4 py-2 bg-cave-bg-secondary border border-cave-border rounded-lg text-sm text-cave-text-primary focus:outline-none focus:border-cave-gold" />
+        <div className="flex items-center gap-2 shrink-0">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-cave-text-muted" />
+            <input type="text" placeholder={`Search ${activeTab === 'members' ? 'members' : 'third parties'}...`} value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-52 pl-10 pr-4 py-2 bg-cave-bg-secondary border border-cave-border rounded-lg text-sm text-cave-text-primary focus:outline-none focus:border-cave-gold" />
+          </div>
+          {activeTab === 'members' && (
+            <div className="relative">
+              <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-cave-text-muted" />
+              <input type="text" placeholder="Search by location..." value={locationQuery} onChange={(e) => setLocationQuery(e.target.value)} className="w-52 pl-10 pr-4 py-2 bg-cave-bg-secondary border border-cave-border rounded-lg text-sm text-cave-text-primary focus:outline-none focus:border-cave-gold" />
+            </div>
+          )}
         </div>
       </div>
 
@@ -467,8 +487,7 @@ export function EntitiesPage() {
                     <tr>
                       <th className="text-left px-4 py-3 text-xs font-medium text-cave-text-secondary uppercase">Member</th>
                       <th className="text-left px-4 py-3 text-xs font-medium text-cave-text-secondary uppercase">Member ID</th>
-                      <th className="text-left px-4 py-3 text-xs font-medium text-cave-text-secondary uppercase">Business Arena</th>
-                      <th className="text-left px-4 py-3 text-xs font-medium text-cave-text-secondary uppercase">Location</th>
+                      <th className="text-left px-4 py-3 text-xs font-medium text-cave-text-secondary uppercase">Primary Residence</th>
                       <th className="text-left px-4 py-3 text-xs font-medium text-cave-text-secondary uppercase">Health</th>
                       <th className="text-left px-4 py-3 text-xs font-medium text-cave-text-secondary uppercase">Status</th>
                       <th className="px-4 py-3"></th>
@@ -484,8 +503,20 @@ export function EntitiesPage() {
                           </div>
                         </td>
                         <td className="px-4 py-3">{member.member_id ? <span className="font-mono text-sm text-cave-gold">{member.member_id}</span> : <span className="text-cave-text-muted">-</span>}</td>
-                        <td className="px-4 py-3">{member.business_arena ? <span className="px-2 py-1 rounded-full text-xs font-medium bg-cave-bg-elevated text-cave-text-secondary">{member.business_arena}</span> : <span className="text-cave-text-muted">-</span>}</td>
-                        <td className="px-4 py-3 text-sm text-cave-text-secondary">{member.city && member.country ? `${member.city}, ${member.country}` : member.city || member.country || '-'}</td>
+                        <td className="px-4 py-3">
+                          {(() => {
+                            const loc = member.locationMatchType === 'secondary' ? member.secondary_residence : member.primary_residence
+                            const flag = getLocationFlag(loc)
+                            return loc ? (
+                              <div className="flex items-center gap-1.5">
+                                {flag && <span className="text-base leading-none">{flag}</span>}
+                                <span className="text-sm text-cave-text-secondary">{loc}</span>
+                                {member.locationMatchType === 'primary' && <span className="px-1.5 py-0.5 rounded text-xs font-medium bg-cave-gold/10 text-cave-gold">Primary</span>}
+                                {member.locationMatchType === 'secondary' && <span className="px-1.5 py-0.5 rounded text-xs font-medium bg-cave-bg-elevated text-cave-text-muted">Secondary</span>}
+                              </div>
+                            ) : <span className="text-cave-text-muted">-</span>
+                          })()}
+                        </td>
                         <td className="px-4 py-3"><HealthScoreBadge score={member.health_score || 0} /></td>
                         <td className="px-4 py-3"><span className={cn("px-2 py-1 rounded-full text-xs font-medium", member.blacklisted ? 'bg-red-500/20 text-red-400' : member.status === 'ACTIVE' ? 'bg-cave-status-success/20 text-cave-status-success' : member.status === 'INACTIVE' ? 'bg-cave-status-warning/20 text-cave-status-warning' : member.status === 'CHURNED' ? 'bg-cave-status-error/20 text-cave-status-error' : 'bg-cave-bg-elevated text-cave-text-secondary')}>{member.blacklisted ? 'Blacklisted' : member.status || 'Unknown'}</span></td>
                         <td className="px-4 py-3"><button onClick={(e) => { e.stopPropagation(); setPreviewMember(previewMember?.id === member.id ? null : member) }} className="p-2 hover:bg-cave-bg-elevated rounded-lg transition-colors"><MoreHorizontal className="w-4 h-4 text-cave-text-muted" /></button></td>
