@@ -18,6 +18,7 @@ import { B2BIntrosPage } from './pages/B2BIntrosPage'
 import { ScheduledCallsPage } from './pages/ScheduledCallsPage'
 import { MemberProfilePage } from './pages/MemberProfilePage'
 import { EntitiesPage } from './pages/EntitiesPage'
+import { AnalyticsPage } from './pages/AnalyticsPage'
 import { useCurrentStaffProfile } from './hooks/useStaffProfile'
 import { supabase } from './lib/supabase'
 import { OnboardingFormsPage } from './pages/OnboardingFormsPage'
@@ -133,7 +134,7 @@ export default function App() {
             <Route path="/b2b/calls" element={<ScheduledCallsPage />} />
             <Route path="/onboarding-forms" element={<OnboardingFormsPage />} />
             <Route  path="/staff/onboarding-forms/:id/edit"  element={<OnboardingFormBuilderPage />} />
-            <Route path="/analytics" element={<div className="p-6 text-cave-text-primary">Analytics - Coming Soon</div>} />
+            <Route path="/analytics" element={<AnalyticsPage />} />
             <Route path="/settings" element={<div className="p-6 text-cave-text-primary">Settings - Coming Soon</div>} />
           </Route>
 
