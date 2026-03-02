@@ -24,6 +24,7 @@ import { supabase } from './lib/supabase'
 import { OnboardingFormsPage } from './pages/OnboardingFormsPage'
 import { OnboardingFormBuilderPage } from './pages/OnboardingFormBuilderPage'
 import { OnboardingFormPage } from './pages/OnboardingFormPage'
+import { ShuraPage } from './pages/ShuraPage'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -135,6 +136,7 @@ export default function App() {
             <Route path="/onboarding-forms" element={<OnboardingFormsPage />} />
             <Route  path="/staff/onboarding-forms/:id/edit"  element={<OnboardingFormBuilderPage />} />
             <Route path="/analytics" element={<AnalyticsPage />} />
+            <Route path="/shuras" element={<ShuraPage />} />
             <Route path="/settings" element={<div className="p-6 text-cave-text-primary">Settings - Coming Soon</div>} />
           </Route>
 

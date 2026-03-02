@@ -27,6 +27,9 @@ import {
   Briefcase,
   Check,
   Camera,
+  AlertTriangle,
+  UserMinus,
+  Trash2,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { cn, getInitials } from '../lib/utils'
@@ -220,10 +223,14 @@ export function MemberProfilePage() {
   const queryClient = useQueryClient()
   const [showEditModal, setShowEditModal] = useState(false)
   const [showBlacklistModal, setShowBlacklistModal] = useState(false)
+  const [showOffboardModal, setShowOffboardModal] = useState(false)
+  const [showPurgeModal, setShowPurgeModal] = useState(false)
   const [editingBackground, setEditingBackground] = useState(false)
   const [backgroundDraft, setBackgroundDraft] = useState('')
   const [editingPhone, setEditingPhone] = useState(false)
   const [phoneDraft, setPhoneDraft] = useState('')
+  const [editingNotes, setEditingNotes] = useState(false)
+  const [notesDraft, setNotesDraft] = useState('')
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
   const avatarInputRef = useRef<HTMLInputElement>(null)
   const [locationPickerTarget, setLocationPickerTarget] = useState<'primary_residence' | 'secondary_residence' | null>(null)
@@ -275,6 +282,35 @@ export function MemberProfilePage() {
     }
   })
 
+  const offboardMember = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase
+        .from('members')
+        .update({ status: 'INACTIVE' })
+        .eq('id', memberId)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['member', memberId] })
+      queryClient.invalidateQueries({ queryKey: ['members'] })
+      setShowOffboardModal(false)
+    }
+  })
+
+  const purgeMember = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase
+        .from('members')
+        .delete()
+        .eq('id', memberId)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['members'] })
+      navigate('/members')
+    }
+  })
+
   const updateMemberField = useMutation({
     mutationFn: async (updates: Record<string, string | null>) => {
       const { error } = await supabase
@@ -287,6 +323,7 @@ export function MemberProfilePage() {
       queryClient.invalidateQueries({ queryKey: ['member', memberId] })
       setEditingBackground(false)
       setEditingPhone(false)
+      setEditingNotes(false)
     }
   })
 
@@ -527,6 +564,15 @@ export function MemberProfilePage() {
                       {member.wealth_tier}
                     </span>
                   )}
+                  {!member.blacklisted && member.status !== 'INACTIVE' && (
+                    <button
+                      onClick={() => setShowOffboardModal(true)}
+                      className="flex items-center gap-1.5 px-3 py-1 text-sm text-cave-status-warning hover:bg-cave-status-warning/10 rounded-lg transition-colors"
+                    >
+                      <UserMinus className="w-4 h-4" />
+                      Offboard
+                    </button>
+                  )}
                   {!member.blacklisted && (
                     <button
                       onClick={() => setShowBlacklistModal(true)}
@@ -536,6 +582,13 @@ export function MemberProfilePage() {
                       Blacklist
                     </button>
                   )}
+                  <button
+                    onClick={() => setShowPurgeModal(true)}
+                    className="flex items-center gap-1.5 px-3 py-1 text-sm text-red-600 hover:bg-red-600/10 rounded-lg transition-colors border border-red-600/30"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    Purge
+                  </button>
                 </div>
               </div>
 
@@ -981,6 +1034,53 @@ export function MemberProfilePage() {
             </div>
           </div>
         </div>
+
+        {/* Notes */}
+        <div className="mt-5 pt-5 border-t border-cave-border">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-xs text-cave-text-muted uppercase tracking-wider">Notes</p>
+            {!editingNotes && (
+              <button
+                onClick={() => { setNotesDraft(member.notes || ''); setEditingNotes(true) }}
+                className="p-1 rounded text-cave-text-muted hover:text-cave-text-primary hover:bg-cave-bg-elevated transition-colors"
+              >
+                <Pencil className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+          {editingNotes ? (
+            <div className="space-y-2">
+              <textarea
+                value={notesDraft}
+                onChange={(e) => setNotesDraft(e.target.value)}
+                rows={4}
+                className="input w-full resize-none"
+                placeholder="Add notes about this member..."
+                autoFocus
+              />
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => updateMemberField.mutate({ notes: notesDraft || null })}
+                  disabled={updateMemberField.isPending}
+                  className="btn-primary text-xs px-3 py-1.5 flex items-center gap-1"
+                >
+                  <Check className="w-3.5 h-3.5" />
+                  {updateMemberField.isPending ? 'Saving...' : 'Save'}
+                </button>
+                <button
+                  onClick={() => setEditingNotes(false)}
+                  className="btn-ghost text-xs px-3 py-1.5"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : (
+            <p className="text-cave-text-primary whitespace-pre-wrap">
+              {member.notes || <span className="text-cave-text-muted italic">No notes</span>}
+            </p>
+          )}
+        </div>
       </div>
 
       {/* Edit Membership Modal */}
@@ -1001,6 +1101,51 @@ export function MemberProfilePage() {
           }}
           onClose={() => setLocationPickerTarget(null)}
         />
+      )}
+
+      {/* Offboard Confirmation Modal */}
+      {showOffboardModal && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+          <div className="bg-cave-bg-secondary border border-cave-border rounded-xl w-full max-w-md overflow-hidden">
+            <div className="p-6">
+              <div className="flex items-center justify-center w-12 h-12 rounded-full bg-cave-status-warning/20 mx-auto mb-4">
+                <AlertTriangle className="w-6 h-6 text-cave-status-warning" />
+              </div>
+              <h2 className="text-lg font-semibold text-cave-text-primary text-center mb-2">Offboard Member</h2>
+              <p className="text-cave-text-secondary text-center mb-4">
+                Are you sure you want to offboard <span className="font-medium text-cave-text-primary">{member.first_name} {member.last_name}</span>?
+              </p>
+              <div className="bg-cave-bg-elevated rounded-lg p-4 mb-6">
+                <p className="text-sm text-cave-text-secondary">
+                  This will mark the member as <span className="font-medium text-cave-status-warning">inactive</span>. They will:
+                </p>
+                <ul className="mt-2 space-y-1 text-sm text-cave-text-muted">
+                  <li className="flex items-start gap-2">
+                    <span className="text-cave-status-warning mt-0.5">•</span>
+                    Not appear in member directories
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-cave-status-warning mt-0.5">•</span>
+                    Not be visible in engagement data
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-cave-status-warning mt-0.5">•</span>
+                    Retain their data for record-keeping
+                  </li>
+                </ul>
+              </div>
+              <div className="flex gap-3">
+                <button type="button" onClick={() => setShowOffboardModal(false)} disabled={offboardMember.isPending} className="flex-1 px-4 py-2 text-cave-text-secondary hover:text-cave-text-primary border border-cave-border rounded-lg hover:bg-cave-bg-elevated disabled:opacity-50">
+                  Cancel
+                </button>
+                <button type="button" onClick={() => offboardMember.mutate()} disabled={offboardMember.isPending} className="flex-1 px-4 py-2 bg-cave-status-warning text-white rounded-lg font-medium hover:bg-cave-status-warning/90 disabled:opacity-50 flex items-center justify-center gap-2">
+                  {offboardMember.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserMinus className="w-4 h-4" />}
+                  {offboardMember.isPending ? 'Offboarding...' : 'Offboard'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Blacklist Confirmation Modal */}
@@ -1027,6 +1172,38 @@ export function MemberProfilePage() {
                 <button type="button" onClick={() => blacklistMember.mutate()} disabled={blacklistMember.isPending} className="flex-1 px-4 py-2 bg-red-500 text-white rounded-lg font-medium hover:bg-red-500/90 disabled:opacity-50 flex items-center justify-center gap-2">
                   {blacklistMember.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShieldBan className="w-4 h-4" />}
                   {blacklistMember.isPending ? 'Blacklisting...' : 'Blacklist'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Purge Confirmation Modal */}
+      {showPurgeModal && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+          <div className="bg-cave-bg-secondary border border-red-600/40 rounded-xl w-full max-w-md overflow-hidden">
+            <div className="p-6">
+              <div className="flex items-center justify-center w-12 h-12 rounded-full bg-red-600/20 mx-auto mb-4">
+                <Trash2 className="w-6 h-6 text-red-600" />
+              </div>
+              <h2 className="text-lg font-semibold text-cave-text-primary text-center mb-2">Purge Member</h2>
+              <p className="text-cave-text-secondary text-center mb-4">
+                Permanently delete <span className="font-medium text-cave-text-primary">{member.first_name} {member.last_name}</span> from the system?
+              </p>
+              <div className="bg-red-600/10 border border-red-600/20 rounded-lg p-4 mb-6">
+                <p className="text-sm text-red-400 font-medium mb-1">This cannot be undone.</p>
+                <p className="text-sm text-cave-text-secondary">
+                  All data for this member will be permanently deleted — profile, calls, event signups, assessments, and all related records.
+                </p>
+              </div>
+              <div className="flex gap-3">
+                <button type="button" onClick={() => setShowPurgeModal(false)} disabled={purgeMember.isPending} className="flex-1 px-4 py-2 text-cave-text-secondary hover:text-cave-text-primary border border-cave-border rounded-lg hover:bg-cave-bg-elevated disabled:opacity-50">
+                  Cancel
+                </button>
+                <button type="button" onClick={() => purgeMember.mutate()} disabled={purgeMember.isPending} className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg font-medium hover:bg-red-600/90 disabled:opacity-50 flex items-center justify-center gap-2">
+                  {purgeMember.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                  {purgeMember.isPending ? 'Purging...' : 'Purge Member'}
                 </button>
               </div>
             </div>

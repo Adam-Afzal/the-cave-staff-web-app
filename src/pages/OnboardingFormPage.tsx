@@ -1,9 +1,19 @@
 // src/pages/OnboardingFormPage.tsx
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useParams } from 'react-router-dom'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { CheckCircle, Loader, AlertCircle } from 'lucide-react'
 import { supabase } from '../lib/supabase'
+import { countries, getLocationFlag } from '../data/locations'
+
+// Pre-build the full location list once (same as LocationPickerModal)
+const allLocations: { label: string; sublabel: string; value: string; flag: string }[] = []
+for (const country of countries) {
+  allLocations.push({ label: country.name, sublabel: '', value: country.name, flag: country.flag })
+  for (const city of country.cities) {
+    allLocations.push({ label: city, sublabel: country.name, value: `${city}, ${country.name}`, flag: country.flag })
+  }
+}
 
 interface OnboardingForm {
   id: string
@@ -25,6 +35,78 @@ interface OnboardingQuestion {
   help_text: string | null
   order_index: number
   is_custom_field: boolean
+}
+
+function LocationField({ value, onChange, placeholder }: {
+  value: string
+  onChange: (v: string) => void
+  placeholder?: string
+}) {
+  const [query, setQuery] = useState('')
+  const [open, setOpen] = useState(false)
+
+  const results = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    if (!q) return []
+    return allLocations.filter(r =>
+      r.label.toLowerCase().includes(q) ||
+      r.sublabel.toLowerCase().includes(q) ||
+      r.value.toLowerCase().includes(q)
+    ).slice(0, 30)
+  }, [query])
+
+  const flag = getLocationFlag(value)
+
+  return (
+    <div className="relative">
+      {value && !open ? (
+        <div
+          className="flex items-center gap-2 px-3 py-2 bg-[#1A1F26] border border-[#2A2F36] rounded-lg text-white cursor-text"
+          onClick={() => { setOpen(true); setQuery('') }}
+        >
+          {flag && <span className="text-base leading-none">{flag}</span>}
+          <span className="flex-1 text-sm">{value}</span>
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); onChange('') }}
+            className="text-[#6B7A94] hover:text-white text-xl leading-none"
+          >
+            ×
+          </button>
+        </div>
+      ) : (
+        <input
+          type="text"
+          value={query}
+          onChange={(e) => { setQuery(e.target.value); setOpen(true) }}
+          onFocus={() => setOpen(true)}
+          onBlur={() => setTimeout(() => setOpen(false), 150)}
+          placeholder={placeholder || 'Search country or city...'}
+          autoFocus={open}
+          className="w-full px-3 py-2 bg-[#1A1F26] border border-[#2A2F36] rounded-lg text-white focus:outline-none focus:border-cave-gold"
+        />
+      )}
+      {open && results.length > 0 && (
+        <div className="absolute z-10 w-full mt-1 bg-[#1A1F26] border border-[#2A2F36] rounded-lg shadow-xl max-h-56 overflow-y-auto">
+          {results.map((result) => (
+            <button
+              key={result.value}
+              type="button"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => { onChange(result.value); setQuery(''); setOpen(false) }}
+              className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-[#2A2F36] text-left"
+            >
+              <span className="text-lg w-7 text-center flex-shrink-0">{result.flag}</span>
+              <div className="min-w-0">
+                <p className="text-sm text-white truncate">{result.label}</p>
+                {result.sublabel && <p className="text-xs text-[#6B7A94] truncate">{result.sublabel}</p>}
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
 }
 
 export function OnboardingFormPage() {
@@ -241,9 +323,13 @@ export function OnboardingFormPage() {
               // Telegram
               telegram_username: formData.telegram_username || '',
 
+              // Residence
+              primary_residence: formData.primary_residence || '',
+              secondary_residence: formData.secondary_residence || '',
+
               // Philanthropy
               philanthropy_interest: formData.philanthropy_interest ? 'Yes' : 'No',
-              
+
               // Add any custom fields dynamically
               ...Object.fromEntries(
                 Object.entries(formData)
@@ -257,7 +343,7 @@ export function OnboardingFormPage() {
                     'hidden_talents', 'offer_summary', 'referral_prospects',
                     'twelve_month_success', 'own_description', 'youtube_topics',
                     'weekly_calls_interest', 'board_room', 'telegram_username',
-                    'philanthropy_interest'
+                    'primary_residence', 'secondary_residence', 'philanthropy_interest'
                   ].includes(key))
                   .map(([key, value]) => [
                     `custom_${key}`,
@@ -493,6 +579,14 @@ export function OnboardingFormPage() {
                       </label>
                     ))}
                   </div>
+                )}
+
+                {question.field_type === 'location' && (
+                  <LocationField
+                    value={formData[question.field_name] || ''}
+                    onChange={(v) => handleChange(question.field_name, v)}
+                    placeholder={question.placeholder || undefined}
+                  />
                 )}
 
                 {errors[question.field_name] && (

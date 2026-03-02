@@ -132,6 +132,37 @@ export interface Event {
   updated_at: string
 }
 
+export interface Shura {
+  id: string
+  name: string
+  created_at: string
+  updated_at: string
+}
+
+export interface ShuraMember {
+  id: string
+  shura_id: string
+  member_id: string
+  is_moderator: boolean
+  joined_at: string
+}
+
+export interface ShuraMeeting {
+  id: string
+  shura_id: string
+  meeting_date: string
+  notes: string | null
+  created_at: string
+}
+
+export interface ShuraMeetingAttendance {
+  id: string
+  meeting_id: string
+  member_id: string
+  attended: boolean
+  created_at: string
+}
+
 export interface UaeTravel {
   id: string
   member_id: string

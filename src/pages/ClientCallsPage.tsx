@@ -41,6 +41,7 @@ export function ClientCallsPage() {
         .from('members')
         .select('id, first_name, last_name, email, business_arena, status')
         .eq('status', 'ACTIVE')
+        .eq('blacklisted', false)
         .order('first_name')
       if (error) throw error
       return data

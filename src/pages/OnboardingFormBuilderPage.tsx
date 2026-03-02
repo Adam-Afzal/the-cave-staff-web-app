@@ -61,13 +61,15 @@ const AVAILABLE_FIELDS = {
     fields: [
       { name: 'city', label: 'City', type: 'text' },
       { name: 'country', label: 'Country', type: 'text' },
-      { 
-        name: 'region', 
-        label: 'Region', 
+      {
+        name: 'region',
+        label: 'Region',
         type: 'multiselect'
         // Options removed - set them in the editor
       },
       { name: 'timezone', label: 'Timezone', type: 'text' },
+      { name: 'primary_residence', label: 'Primary Residence', type: 'location' },
+      { name: 'secondary_residence', label: 'Secondary Residence', type: 'location' },
     ]
   },
   business: {
@@ -231,7 +233,7 @@ export function OnboardingFormBuilderPage() {
         'hidden_talents', 'offer_summary', 'referral_prospects',
         'twelve_month_success', 'own_description', 'youtube_topics',
         'weekly_calls_interest', 'board_room', 'telegram_username',
-        'philanthropy_interest'
+        'philanthropy_interest', 'primary_residence', 'secondary_residence'
       ])
 
       // Insert new questions
@@ -635,6 +637,15 @@ function QuestionEditor({ question, onUpdate, onClose }: QuestionEditorProps) {
             rows={3}
           />
         </div>
+
+        {/* Location field info */}
+        {question.field_type === 'location' && (
+          <div className="p-3 bg-[#1A1F26] border border-[#2A2F36] rounded-lg">
+            <p className="text-xs text-[#6B7A94]">
+              Options are drawn from the built-in locations list (all countries and their major cities). No configuration needed.
+            </p>
+          </div>
+        )}
 
         {/* Options (for select/multiselect) */}
         {(question.field_type === 'select' || question.field_type === 'multiselect') && (
