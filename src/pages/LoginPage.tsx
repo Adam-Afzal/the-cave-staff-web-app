@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { Loader2 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import cavelogo from '../assets/cavelogo.jpg'
@@ -7,9 +7,10 @@ import cavelogo from '../assets/cavelogo.jpg'
 export function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [error, setError] = useState('')
+  const location = useLocation()
+  const [error, setError] = useState((location.state as { error?: string })?.error ?? '')
   const [isLoading, setIsLoading] = useState(false)
-  
+
   const navigate = useNavigate()
 
   const handleSubmit = async (e: React.FormEvent) => {

@@ -2,12 +2,14 @@
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { User, Settings, LogOut, ChevronDown } from 'lucide-react'
+import { useQueryClient } from '@tanstack/react-query'
 import { useCurrentStaffProfile } from '../../hooks/useStaffProfile'
 import { supabase } from '../../lib/supabase'
 import { cn } from '../../lib/utils'
 
 export function TopBar() {
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const { data: profile } = useCurrentStaffProfile()
   const [showDropdown, setShowDropdown] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
@@ -25,6 +27,7 @@ export function TopBar() {
 
   const handleSignOut = async () => {
     await supabase.auth.signOut()
+    queryClient.clear()
     navigate('/login')
   }
 

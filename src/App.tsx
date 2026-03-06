@@ -1,7 +1,7 @@
 // src/App.tsx
 import { useEffect, useState } from 'react'
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query'
 import { Layout } from './components/layout'
 import { LoginPage, DashboardPage, ConciergePage } from './pages'
 import { ClientCallsPage } from './pages/ClientCallsPage'
@@ -64,19 +64,45 @@ function OnboardingCheck({ children }: { children: React.ReactNode }) {
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [isStaff, setIsStaff] = useState<boolean | null>(null)
+  const queryClient = useQueryClient()
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setIsAuthenticated(!!session)
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (!session) {
+        setIsAuthenticated(false)
+        setIsLoading(false)
+        return
+      }
+
+      // Check that the authenticated user has a staff profile
+      const { data } = await supabase
+        .from('staff')
+        .select('id')
+        .eq('auth_user_id', session.user.id)
+        .maybeSingle()
+
+      if (!data) {
+        await supabase.auth.signOut()
+        queryClient.clear()
+        setIsAuthenticated(false)
+        setIsStaff(false)
+      } else {
+        setIsAuthenticated(true)
+        setIsStaff(true)
+      }
       setIsLoading(false)
     })
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setIsAuthenticated(!!session)
+      if (!session) {
+        setIsAuthenticated(false)
+        setIsStaff(null)
+      }
     })
 
     return () => subscription.unsubscribe()
-  }, [])
+  }, [queryClient])
 
   if (isLoading) {
     return (
@@ -86,8 +112,8 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
     )
   }
 
-  if (!isAuthenticated) {
-    return <Navigate to="/login" replace />
+  if (!isAuthenticated || isStaff === false) {
+    return <Navigate to="/login" replace state={{ error: 'Access denied. This portal is for staff only.' }} />
   }
 
   return <>{children}</>

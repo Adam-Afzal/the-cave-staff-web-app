@@ -30,17 +30,11 @@ export function useCurrentStaffProfile() {
         .from('staff')
         .select('*')
         .eq('auth_user_id', user.id)
-        .single()
+        .maybeSingle()
 
-      if (error) {
-        // Profile doesn't exist yet - this shouldn't happen if staff was created properly
-        if (error.code === 'PGRST116') {
-          throw new Error('Staff profile not found. Please contact an administrator.')
-        }
-        throw error
-      }
+      if (error) throw error
 
-      return data as StaffProfile
+      return (data as StaffProfile) ?? null
     },
   })
 }
