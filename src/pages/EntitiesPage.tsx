@@ -24,11 +24,12 @@ interface Member {
   join_date: string | null; health_score: number | null; wealth_tier: string | null; created_at: string
   blacklisted: boolean
   profile_picture_url: string | null
-  member_telegram?: { telegram_id: string | null; telegram_username: string | null; avatar_url: string | null } | null
+  telegram_username: string | null
+  member_telegram?: { telegram_id: string | null; avatar_url: string | null } | null
 }
 
 type TabType = 'members' | 'third-parties'
-const statusFilters = ['Active', 'Inactive', 'Pending', 'Churned', 'Blacklisted', 'All']
+const statusFilters = ['Active', 'At Risk', 'Onboarding', 'Offboarded', 'Churned', 'Blacklisted', 'All']
 
 function HealthScoreBadge({ score }: { score: number }) {
   return (
@@ -216,7 +217,7 @@ function BlacklistConfirmModal({ member, onClose, onConfirm, isLoading }: { memb
   )
 }
 
-function MemberModal({ member, onClose, onSave }: { member: Member | null; onClose: () => void; onSave: (data: Partial<Member>, telegramData?: { telegram_username?: string }) => void }) {
+function MemberModal({ member, onClose, onSave }: { member: Member | null; onClose: () => void; onSave: (data: Partial<Member>) => void }) {
   const queryClient = useQueryClient()
   const [firstName, setFirstName] = useState(member?.first_name || '')
   const [lastName, setLastName] = useState(member?.last_name || '')
@@ -227,14 +228,14 @@ function MemberModal({ member, onClose, onSave }: { member: Member | null; onClo
   const [city, setCity] = useState(member?.city || '')
   const [country, setCountry] = useState(member?.country || '')
   const [joinDate, setJoinDate] = useState(member?.join_date?.split('T')[0] || new Date().toISOString().split('T')[0])
-  const [telegramUsername, setTelegramUsername] = useState(member?.member_telegram?.telegram_username || '')
+  const [telegramUsername, setTelegramUsername] = useState(member?.telegram_username || '')
   const [professionalBackground, setProfessionalBackground] = useState(member?.professional_background || '')
   const [showOffboardModal, setShowOffboardModal] = useState(false)
   const [showBlacklistModal, setShowBlacklistModal] = useState(false)
 
   const offboardMember = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase.from('members').update({ status: 'INACTIVE' }).eq('id', member!.id)
+      const { error } = await supabase.from('members').update({ status: 'OFFBOARDED' }).eq('id', member!.id)
       if (error) throw error
     },
     onSuccess: () => {
@@ -245,7 +246,7 @@ function MemberModal({ member, onClose, onSave }: { member: Member | null; onClo
 
   const blacklistMember = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase.from('members').update({ blacklisted: true, status: 'INACTIVE' }).eq('id', member!.id)
+      const { error } = await supabase.from('members').update({ blacklisted: true, status: 'OFFBOARDED' }).eq('id', member!.id)
       if (error) throw error
     },
     onSuccess: () => {
@@ -256,11 +257,11 @@ function MemberModal({ member, onClose, onSave }: { member: Member | null; onClo
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    onSave({ first_name: firstName || null, last_name: lastName || null, email: email || null, phone: phone || null, status, business_arena: businessArena || null, professional_background: professionalBackground || null, city: city || null, country: country || null, join_date: joinDate || null }, { telegram_username: telegramUsername || undefined })
+    onSave({ first_name: firstName || null, last_name: lastName || null, email: email || null, phone: phone || null, status, business_arena: businessArena || null, professional_background: professionalBackground || null, city: city || null, country: country || null, join_date: joinDate || null, telegram_username: telegramUsername || null })
   }
 
   const isEditing = !!member
-  const canOffboard = isEditing && member.status !== 'INACTIVE'
+  const canOffboard = isEditing && member.status !== 'OFFBOARDED'
   const canBlacklist = isEditing && !member.blacklisted
 
   return (
@@ -281,7 +282,7 @@ function MemberModal({ member, onClose, onSave }: { member: Member | null; onClo
               <div><label className="block text-sm font-medium text-cave-text-secondary mb-1">Phone</label><input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} className="w-full px-3 py-2 bg-cave-bg-elevated border border-cave-border rounded-lg text-cave-text-primary focus:outline-none focus:border-cave-gold" /></div>
             </div>
             <div className="grid grid-cols-2 gap-4">
-              <div><label className="block text-sm font-medium text-cave-text-secondary mb-1">Status</label><select value={status || 'ACTIVE'} onChange={(e) => setStatus(e.target.value)} className="w-full px-3 py-2 bg-cave-bg-elevated border border-cave-border rounded-lg text-cave-text-primary focus:outline-none focus:border-cave-gold"><option value="ACTIVE">Active</option><option value="INACTIVE">Inactive</option><option value="PENDING">Pending</option><option value="CHURNED">Churned</option></select></div>
+              <div><label className="block text-sm font-medium text-cave-text-secondary mb-1">Status</label><select value={status || 'ACTIVE'} onChange={(e) => setStatus(e.target.value)} className="w-full px-3 py-2 bg-cave-bg-elevated border border-cave-border rounded-lg text-cave-text-primary focus:outline-none focus:border-cave-gold"><option value="ONBOARDING">Onboarding</option><option value="ACTIVE">Active</option><option value="AT_RISK">At Risk</option><option value="OFFBOARDED">Offboarded</option><option value="CHURNED">Churned</option></select></div>
               <div><label className="block text-sm font-medium text-cave-text-secondary mb-1">Join Date</label><input type="date" value={joinDate} onChange={(e) => setJoinDate(e.target.value)} className="w-full px-3 py-2 bg-cave-bg-elevated border border-cave-border rounded-lg text-cave-text-primary focus:outline-none focus:border-cave-gold" /></div>
             </div>
             <div><label className="block text-sm font-medium text-cave-text-secondary mb-1">Business Arena</label><input type="text" value={businessArena} onChange={(e) => setBusinessArena(e.target.value)} className="w-full px-3 py-2 bg-cave-bg-elevated border border-cave-border rounded-lg text-cave-text-primary focus:outline-none focus:border-cave-gold" /></div>
@@ -338,7 +339,7 @@ function MemberPreviewSidebar({ member, onClose, onViewProfile, onEdit }: { memb
       <div className="space-y-3 mb-4">
         <div className="flex items-center gap-3 text-sm"><Mail className="w-4 h-4 text-cave-text-muted" /><span className="text-cave-text-secondary truncate">{member.email}</span></div>
         {member.phone && <div className="flex items-center gap-3 text-sm"><Phone className="w-4 h-4 text-cave-text-muted" /><span className="text-cave-text-secondary">{member.phone}</span></div>}
-        {member.member_telegram?.telegram_username && <div className="flex items-center gap-3 text-sm"><span className="w-4 h-4 text-cave-text-muted text-center">@</span><span className="text-cave-text-secondary">{member.member_telegram.telegram_username}</span></div>}
+        {member.telegram_username && <div className="flex items-center gap-3 text-sm"><span className="w-4 h-4 text-cave-text-muted text-center">@</span><span className="text-cave-text-secondary">{member.telegram_username}</span></div>}
       </div>
       <div className="pt-4 border-t border-cave-border"><p className="text-xs text-cave-text-muted mb-2">Health Score</p><HealthScoreBadge score={member.health_score || 0} /></div>
       <div className="flex gap-2 mt-4">
@@ -374,7 +375,7 @@ export function EntitiesPage() {
   const { data: members = [], isLoading: membersLoading } = useQuery({
     queryKey: ['members'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('members').select('*, member_telegram(telegram_id,telegram_username,avatar_url)').order('created_at', { ascending: false })
+      const { data, error } = await supabase.from('members').select('*, member_telegram(telegram_id,avatar_url)').order('created_at', { ascending: false })
       if (error) throw error
       return data as Member[]
     }
@@ -384,7 +385,7 @@ export function EntitiesPage() {
   const filteredMembers = members
     .filter(member => {
       const matchesSearch = !searchQuery || searchQuery.length < 2 || member.first_name?.toLowerCase().includes(searchQuery.toLowerCase()) || member.last_name?.toLowerCase().includes(searchQuery.toLowerCase()) || member.email?.toLowerCase().includes(searchQuery.toLowerCase()) || member.member_id?.toLowerCase().includes(searchQuery.toLowerCase())
-      const matchesFilter = statusFilter === 'All' ? !member.blacklisted : statusFilter === 'Blacklisted' ? member.blacklisted : !member.blacklisted && member.status?.toUpperCase() === statusFilter.toUpperCase()
+      const matchesFilter = statusFilter === 'All' ? !member.blacklisted : statusFilter === 'Blacklisted' ? member.blacklisted : !member.blacklisted && member.status?.toUpperCase() === statusFilter.toUpperCase().replace(/\s+/g, '_')
       const matchesLocation = !locationQ || locationQ.length < 2 || member.primary_residence?.toLowerCase().includes(locationQ) || member.secondary_residence?.toLowerCase().includes(locationQ)
       return matchesSearch && matchesFilter && matchesLocation
     })
@@ -413,32 +414,24 @@ export function EntitiesPage() {
   })
 
   const createMember = useMutation({
-    mutationFn: async ({ memberData, telegramData }: { memberData: Partial<Member>; telegramData?: { telegram_username?: string } }) => {
+    mutationFn: async (memberData: Partial<Member>) => {
       const { data: newMember, error: memberError } = await supabase.from('members').insert(memberData).select().single()
       if (memberError) throw memberError
-      const { error: telegramError } = await supabase.from('member_telegram').insert({ member_id: newMember.id, telegram_username: telegramData?.telegram_username || null })
-      if (telegramError) throw telegramError
-      const { error: profileError } = await supabase.from('member_profile').insert({ member_id: newMember.id })
-      if (profileError) throw profileError
       return newMember
     },
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['members'] }); setShowMemberModal(false) }
   })
 
   const updateMember = useMutation({
-    mutationFn: async ({ id, memberData, telegramData }: { id: string; memberData: Partial<Member>; telegramData?: { telegram_username?: string } }) => {
+    mutationFn: async ({ id, memberData }: { id: string; memberData: Partial<Member> }) => {
       const { error: memberError } = await supabase.from('members').update(memberData).eq('id', id)
       if (memberError) throw memberError
-      if (telegramData?.telegram_username !== undefined) {
-        const { error: telegramError } = await supabase.from('member_telegram').update({ telegram_username: telegramData.telegram_username || null }).eq('member_id', id)
-        if (telegramError) throw telegramError
-      }
     },
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['members'] }); setEditingMember(null); setPreviewMember(null) }
   })
 
   const handleSaveThirdParty = (data: Partial<ThirdParty>) => { editingThirdParty ? updateThirdParty.mutate({ id: editingThirdParty.id, data }) : createThirdParty.mutate(data) }
-  const handleSaveMember = (memberData: Partial<Member>, telegramData?: { telegram_username?: string }) => { editingMember ? updateMember.mutate({ id: editingMember.id, memberData, telegramData }) : createMember.mutate({ memberData, telegramData }) }
+  const handleSaveMember = (memberData: Partial<Member>) => { editingMember ? updateMember.mutate({ id: editingMember.id, memberData }) : createMember.mutate(memberData) }
 
   return (
     <div className="p-6 space-y-6">
@@ -518,7 +511,7 @@ export function EntitiesPage() {
                           })()}
                         </td>
                         <td className="px-4 py-3"><HealthScoreBadge score={member.health_score || 0} /></td>
-                        <td className="px-4 py-3"><span className={cn("px-2 py-1 rounded-full text-xs font-medium", member.blacklisted ? 'bg-red-500/20 text-red-400' : member.status === 'ACTIVE' ? 'bg-cave-status-success/20 text-cave-status-success' : member.status === 'INACTIVE' ? 'bg-cave-status-warning/20 text-cave-status-warning' : member.status === 'CHURNED' ? 'bg-cave-status-error/20 text-cave-status-error' : 'bg-cave-bg-elevated text-cave-text-secondary')}>{member.blacklisted ? 'Blacklisted' : member.status || 'Unknown'}</span></td>
+                        <td className="px-4 py-3"><span className={cn("px-2 py-1 rounded-full text-xs font-medium", member.blacklisted ? 'bg-red-500/20 text-red-400' : member.status === 'ACTIVE' ? 'bg-cave-status-success/20 text-cave-status-success' : member.status === 'ONBOARDING' ? 'bg-cave-status-info/20 text-cave-status-info' : member.status === 'AT_RISK' ? 'bg-cave-status-warning/20 text-cave-status-warning' : member.status === 'CHURNED' ? 'bg-cave-status-error/20 text-cave-status-error' : 'bg-cave-bg-elevated text-cave-text-secondary')}>{member.blacklisted ? 'Blacklisted' : member.status || 'Unknown'}</span></td>
                         <td className="px-4 py-3"><button onClick={(e) => { e.stopPropagation(); setPreviewMember(previewMember?.id === member.id ? null : member) }} className="p-2 hover:bg-cave-bg-elevated rounded-lg transition-colors"><MoreHorizontal className="w-4 h-4 text-cave-text-muted" /></button></td>
                       </tr>
                     ))}

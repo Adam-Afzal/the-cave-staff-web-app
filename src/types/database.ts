@@ -1,5 +1,5 @@
 export type WealthTier = 'UHNW' | 'HNW' | 'RICH'
-export type MemberStatus = 'ACTIVE' | 'INACTIVE' | 'CHURNED' | 'PENDING'
+export type MemberStatus = 'ONBOARDING' | 'ACTIVE' | 'AT_RISK' | 'OFFBOARDED' | 'CHURNED'
 export type ConnectionType = 'B2B' | 'INVESTMENT' | 'STRATEGIC' | 'LEGAL' | 'FINANCIAL'
 export type ConnectionStage = 'REQUEST_MADE' | 'CONNECTION_MADE'
 export type FlagType = 'UNWELL' | 'TRAVEL' | 'FAMILY_NEWS' | 'OPPORTUNITY' | 'NEED'

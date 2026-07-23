@@ -671,7 +671,7 @@ export function ShuraPage() {
                             className={cn(
                               member.status === 'ACTIVE'
                                 ? 'badge-success'
-                                : member.status === 'INACTIVE'
+                                : member.status === 'OFFBOARDED'
                                 ? 'badge-warning'
                                 : 'badge-error'
                             )}

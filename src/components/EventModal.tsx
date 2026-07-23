@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { X, MapPin, Users, Globe, Video, Lock, Upload, Image, Trash2 } from 'lucide-react'
+import { X, MapPin, Users, Globe, Video, Lock, Upload, Image, Trash2, RefreshCw } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { cn } from '../lib/utils'
 import { RichTextEditor } from './RichTextEditor'
@@ -42,9 +42,9 @@ function generateSlug(title: string, date: Date): string {
     .replace(/-+/g, '-')
     .substring(0, 80)
 
-  const suffix = date.toLocaleDateString('en-GB', { month: 'short', year: 'numeric' })
+  const suffix = date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
     .toLowerCase()
-    .replace(' ', '-')
+    .replace(/\s+/g, '-')
 
   return `${base}-${suffix}`
 }
@@ -70,6 +70,9 @@ export function EventModal({ event, onClose }: EventModalProps) {
     registration_deadline: '',
     max_guests_per_member: 0,
     cover_image_url: '' as string | null,
+    is_recurring: false,
+    recurrence_type: 'weekly' as 'weekly' | 'monthly',
+    recurrence_end_date: '',
   })
 
   const [imageFile, setImageFile] = useState<File | null>(null)
@@ -145,6 +148,34 @@ export function EventModal({ event, onClose }: EventModalProps) {
     }
   }
 
+  function buildEventPayload(
+    data: typeof formData,
+    coverImageUrl: string | null,
+    startsAt: Date,
+    endsAt: Date | null,
+    overrides: Record<string, any> = {}
+  ) {
+    return {
+      title: data.title,
+      description: data.description || null,
+      summary: data.summary || null,
+      location: data.location || null,
+      location_type: data.location_type,
+      online_link: data.online_link || null,
+      starts_at: startsAt.toISOString(),
+      ends_at: endsAt ? endsAt.toISOString() : null,
+      capacity: data.capacity ? parseInt(data.capacity) : null,
+      status: data.status,
+      slug: generateSlug(data.title, startsAt),
+      is_private: data.is_private,
+      waitlist_enabled: data.waitlist_enabled,
+      registration_deadline: data.registration_deadline || null,
+      max_guests_per_member: data.max_guests_per_member,
+      cover_image_url: coverImageUrl,
+      ...overrides,
+    }
+  }
+
   const createEventMutation = useMutation({
     mutationFn: async (data: typeof formData) => {
       let coverImageUrl = data.cover_image_url
@@ -158,29 +189,47 @@ export function EventModal({ event, onClose }: EventModalProps) {
         }
       }
 
-      const slug = generateSlug(data.title, new Date(data.starts_at))
-      
-      const payload = {
-        title: data.title,
-        description: data.description || null,
-        summary: data.summary || null,
-        location: data.location || null,
-        location_type: data.location_type,
-        online_link: data.online_link || null,
-        starts_at: data.starts_at,
-        ends_at: data.ends_at || null,
-        capacity: data.capacity ? parseInt(data.capacity) : null,
-        status: data.status,
-        slug,
-        is_private: data.is_private,
-        waitlist_enabled: data.waitlist_enabled,
-        registration_deadline: data.registration_deadline || null,
-        max_guests_per_member: data.max_guests_per_member,
-        cover_image_url: coverImageUrl,
-      }
+      if (data.is_recurring && data.recurrence_end_date) {
+        const groupId = crypto.randomUUID()
+        const baseStart = new Date(data.starts_at)
+        const baseEnd = data.ends_at ? new Date(data.ends_at) : null
+        const duration = baseEnd ? baseEnd.getTime() - baseStart.getTime() : null
+        const until = new Date(data.recurrence_end_date)
+        until.setHours(23, 59, 59, 999)
 
-      const { error } = await supabase.from('events').insert(payload)
-      if (error) throw error
+        const instances = []
+        let current = new Date(baseStart)
+        let index = 0
+
+        while (current <= until) {
+          const instanceEnd = duration !== null ? new Date(current.getTime() + duration) : null
+          instances.push(buildEventPayload(data, coverImageUrl, current, instanceEnd, {
+            recurrence_group_id: groupId,
+            recurrence_type: data.recurrence_type,
+          }))
+
+          index++
+          current = new Date(baseStart)
+          if (data.recurrence_type === 'weekly') {
+            current.setDate(current.getDate() + index * 7)
+          } else {
+            current.setMonth(current.getMonth() + index)
+          }
+        }
+
+        if (instances.length === 0) throw new Error('No instances generated — check start date and end date')
+        const { error } = await supabase.from('events').insert(instances)
+        if (error) throw error
+      } else {
+        const payload = buildEventPayload(
+          data,
+          coverImageUrl,
+          new Date(data.starts_at),
+          data.ends_at ? new Date(data.ends_at) : null
+        )
+        const { error } = await supabase.from('events').insert(payload)
+        if (error) throw error
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['events'] })
@@ -537,7 +586,75 @@ export function EventModal({ event, onClose }: EventModalProps) {
                 <p className="text-sm text-cave-text-muted">Allow signups when capacity is reached</p>
               </div>
             </label>
+
+            {/* Recurring — only on create */}
+            {!isEditing && (
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={formData.is_recurring}
+                  onChange={(e) => setFormData({ ...formData, is_recurring: e.target.checked })}
+                  className="w-5 h-5 rounded border-cave-border bg-cave-bg-primary text-cave-gold focus:ring-cave-gold/50"
+                />
+                <div>
+                  <span className="text-cave-text-primary font-medium flex items-center gap-2">
+                    <RefreshCw className="w-4 h-4" />
+                    Recurring Event
+                  </span>
+                  <p className="text-sm text-cave-text-muted">Automatically create repeated instances</p>
+                </div>
+              </label>
+            )}
           </div>
+
+          {/* Recurring options */}
+          {!isEditing && formData.is_recurring && (
+            <div className="bg-cave-bg-primary border border-cave-gold/20 rounded-lg p-4 space-y-4">
+              <p className="text-sm font-medium text-cave-gold flex items-center gap-2">
+                <RefreshCw className="w-4 h-4" />
+                Recurrence Settings
+              </p>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-cave-text-secondary mb-2">Repeat</label>
+                  <select
+                    value={formData.recurrence_type}
+                    onChange={(e) => setFormData({ ...formData, recurrence_type: e.target.value as 'weekly' | 'monthly' })}
+                    className="w-full px-4 py-2.5 bg-cave-bg-secondary border border-cave-border rounded-lg text-cave-text-primary focus:outline-none focus:border-cave-gold/50"
+                  >
+                    <option value="weekly">Weekly</option>
+                    <option value="monthly">Monthly</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-cave-text-secondary mb-2">Repeat Until *</label>
+                  <input
+                    type="date"
+                    required={formData.is_recurring}
+                    value={formData.recurrence_end_date}
+                    min={formData.starts_at ? formData.starts_at.slice(0, 10) : undefined}
+                    onChange={(e) => setFormData({ ...formData, recurrence_end_date: e.target.value })}
+                    className="w-full px-4 py-2.5 bg-cave-bg-secondary border border-cave-border rounded-lg text-cave-text-primary focus:outline-none focus:border-cave-gold/50"
+                  />
+                </div>
+              </div>
+              {formData.starts_at && formData.recurrence_end_date && (
+                <p className="text-xs text-cave-text-muted">
+                  {(() => {
+                    const start = new Date(formData.starts_at)
+                    const until = new Date(formData.recurrence_end_date)
+                    let count = 0, cur = new Date(start)
+                    while (cur <= until && count < 200) {
+                      count++
+                      if (formData.recurrence_type === 'weekly') cur.setDate(cur.getDate() + 7)
+                      else cur.setMonth(cur.getMonth() + 1)
+                    }
+                    return `${count} event${count !== 1 ? 's' : ''} will be created`
+                  })()}
+                </p>
+              )}
+            </div>
+          )}
         </form>
 
         {/* Footer */}

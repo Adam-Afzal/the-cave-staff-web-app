@@ -271,7 +271,7 @@ export function MemberProfilePage() {
     mutationFn: async () => {
       const { error } = await supabase
         .from('members')
-        .update({ blacklisted: true, status: 'INACTIVE' })
+        .update({ blacklisted: true, status: 'OFFBOARDED' })
         .eq('id', memberId)
       if (error) throw error
     },
@@ -286,7 +286,7 @@ export function MemberProfilePage() {
     mutationFn: async () => {
       const { error } = await supabase
         .from('members')
-        .update({ status: 'INACTIVE' })
+        .update({ status: 'OFFBOARDED' })
         .eq('id', memberId)
       if (error) throw error
     },
@@ -337,7 +337,6 @@ export function MemberProfilePage() {
           *,
           member_telegram (
             telegram_id,
-            telegram_username,
             avatar_url
           )
         `)
@@ -549,7 +548,8 @@ export function MemberProfilePage() {
                     <span className={cn(
                       "px-3 py-1 rounded-full text-sm font-medium",
                       member.status === 'ACTIVE' ? 'bg-cave-status-success/20 text-cave-status-success' :
-                      member.status === 'INACTIVE' ? 'bg-cave-status-warning/20 text-cave-status-warning' :
+                      member.status === 'ONBOARDING' ? 'bg-cave-status-info/20 text-cave-status-info' :
+                      member.status === 'AT_RISK' ? 'bg-cave-status-warning/20 text-cave-status-warning' :
                       member.status === 'CHURNED' ? 'bg-cave-status-error/20 text-cave-status-error' :
                       'bg-cave-bg-elevated text-cave-text-secondary'
                     )}>
@@ -564,7 +564,7 @@ export function MemberProfilePage() {
                       {member.wealth_tier}
                     </span>
                   )}
-                  {!member.blacklisted && member.status !== 'INACTIVE' && (
+                  {!member.blacklisted && member.status !== 'OFFBOARDED' && (
                     <button
                       onClick={() => setShowOffboardModal(true)}
                       className="flex items-center gap-1.5 px-3 py-1 text-sm text-cave-status-warning hover:bg-cave-status-warning/10 rounded-lg transition-colors"
@@ -724,8 +724,8 @@ export function MemberProfilePage() {
                 </div>
               </div>
 
-              {member.member_telegram?.telegram_username && (
-                <InfoCard icon={MessageSquare} label="Telegram" value={`@${member.member_telegram.telegram_username}`} />
+              {member.telegram_username && (
+                <InfoCard icon={MessageSquare} label="Telegram" value={`@${member.telegram_username}`} />
               )}
               {member.member_telegram?.telegram_id && (
                 <InfoCard icon={Hash} label="Telegram ID" value={member.member_telegram.telegram_id} />

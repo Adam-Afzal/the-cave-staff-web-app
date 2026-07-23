@@ -171,7 +171,8 @@ export function DashboardPage() {
                     <span className={cn(
                       "inline-block mt-0.5 px-1.5 py-0.5 rounded-full text-xs font-medium",
                       member.status === 'ACTIVE' ? 'bg-cave-status-success/20 text-cave-status-success' :
-                      member.status === 'PENDING' ? 'bg-cave-status-warning/20 text-cave-status-warning' :
+                      member.status === 'ONBOARDING' ? 'bg-cave-status-info/20 text-cave-status-info' :
+                      member.status === 'AT_RISK' ? 'bg-cave-status-warning/20 text-cave-status-warning' :
                       'bg-cave-bg-elevated text-cave-text-muted'
                     )}>{member.status}</span>
                   </div>

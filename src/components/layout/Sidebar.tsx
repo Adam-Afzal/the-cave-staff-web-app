@@ -15,6 +15,7 @@ import {
   ClipboardCheck,
   FileText,
   MessagesSquare,
+  ConciergeBell,
 } from 'lucide-react'
 import { cn } from '../../lib/utils'
 import caveLogo from '../../assets/cavelogo.jpg'
@@ -28,6 +29,7 @@ const navigation = [
   { name: 'Events', href: '/events', icon: Calendar },
   { name: 'Analytics', href: '/analytics', icon: BarChart3 },
   { name: 'Shuras (Forums)', href: '/shuras', icon: MessagesSquare },
+  { name: 'Service Requests', href: '/service-requests', icon: ConciergeBell },
   { name: 'Engagement', href: '/engagement', icon: Activity },
   { name: 'Feature Flags', href: '/feature-flags', icon: Flag },
   { name: 'Staff', href: '/staff', icon: UserCog },

@@ -1,4 +1,4 @@
-import { Search, Bell } from 'lucide-react'
+import { Search } from 'lucide-react'
 
 interface HeaderProps {
   title: string
@@ -25,11 +25,6 @@ export function Header({ title, subtitle, actions }: HeaderProps) {
             className="w-64 pl-10 pr-4 py-2 bg-cave-bg-elevated border border-cave-border rounded-lg text-sm text-cave-text-primary placeholder:text-cave-text-muted focus:outline-none focus:ring-2 focus:ring-cave-gold/50 focus:border-cave-gold"
           />
         </div>
-
-        <button className="relative p-2 rounded-lg text-cave-text-secondary hover:bg-cave-bg-elevated hover:text-cave-text-primary transition-colors">
-          <Bell className="w-5 h-5" />
-          <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-cave-status-error rounded-full" />
-        </button>
 
         {actions}
       </div>

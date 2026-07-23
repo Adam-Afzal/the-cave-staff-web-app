@@ -36,7 +36,7 @@ interface Event {
     id: string
     title: string
     description: string | null
-    summary: string | null  // Add this line
+    summary: string | null
     location: string | null
     location_type: LocationType | null
     online_link: string | null
@@ -52,6 +52,8 @@ interface Event {
     cover_image_url: string | null
     created_at: string
     attendee_count?: number
+    recurrence_group_id: string | null
+    recurrence_type: 'weekly' | 'monthly' | null
   }
 
 const statusColors: Record<EventStatus, string> = {
@@ -82,6 +84,7 @@ export function EventsPage() {
     return { year: now.getFullYear(), month: now.getMonth() }
   })
   const [selectedCalendarDate, setSelectedCalendarDate] = useState<string | null>(null)
+  const [deleteConfirm, setDeleteConfirm] = useState<Event | null>(null)
 
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -107,15 +110,18 @@ export function EventsPage() {
   })
 
   const deleteEventMutation = useMutation({
-    mutationFn: async (eventId: string) => {
-      const { error } = await supabase
-        .from('events')
-        .delete()
-        .eq('id', eventId)
-      if (error) throw error
+    mutationFn: async ({ eventId, groupId }: { eventId: string; groupId?: string | null }) => {
+      if (groupId) {
+        const { error } = await supabase.from('events').delete().eq('recurrence_group_id', groupId)
+        if (error) throw error
+      } else {
+        const { error } = await supabase.from('events').delete().eq('id', eventId)
+        if (error) throw error
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['events'] })
+      setDeleteConfirm(null)
     }
   })
 
@@ -164,11 +170,9 @@ export function EventsPage() {
     // You could add a toast notification here
   }
 
-  const handleDelete = (eventId: string) => {
-    if (confirm('Are you sure you want to delete this event?')) {
-      deleteEventMutation.mutate(eventId)
-    }
+  const handleDelete = (event: Event) => {
     setOpenMenuId(null)
+    setDeleteConfirm(event)
   }
 
   const LocationIcon = ({ type }: { type: LocationType | null }) => {
@@ -275,7 +279,7 @@ export function EventsPage() {
                   </button>
                 )}
                 <button
-                  onClick={() => handleDelete(event.id)}
+                  onClick={() => handleDelete(event)}
                   className="w-full px-4 py-2 text-left text-sm text-cave-status-error hover:bg-cave-status-error/10 flex items-center gap-2"
                 >
                   <Trash2 className="w-4 h-4" />
@@ -741,7 +745,7 @@ export function EventsPage() {
                                 <button
                                   onClick={() => {
                                     setSelectedEventDate(null)
-                                    handleDelete(event.id)
+                                    handleDelete(event)
                                   }}
                                   title="Delete Event"
                                   className="p-1.5 rounded-lg text-cave-text-muted hover:bg-cave-status-error/10 hover:text-cave-status-error transition-colors"
@@ -1064,6 +1068,76 @@ export function EventsPage() {
             setEditingTravel(null)
           }}
         />
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deleteConfirm && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+          <div className="bg-cave-bg-secondary border border-cave-border rounded-xl w-full max-w-md p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-full bg-cave-status-error/10 flex items-center justify-center flex-shrink-0">
+                <Trash2 className="w-5 h-5 text-cave-status-error" />
+              </div>
+              <div>
+                <h3 className="text-base font-semibold text-cave-text-primary">Delete Event</h3>
+                <p className="text-sm text-cave-text-secondary truncate">{deleteConfirm.title}</p>
+              </div>
+            </div>
+
+            {deleteConfirm.recurrence_group_id ? (
+              <>
+                <p className="text-sm text-cave-text-secondary mb-6">
+                  This is a recurring event. Do you want to delete just this occurrence or all events in the series?
+                </p>
+                <div className="flex flex-col gap-2">
+                  <button
+                    onClick={() => deleteEventMutation.mutate({ eventId: deleteConfirm.id })}
+                    disabled={deleteEventMutation.isPending}
+                    className="w-full px-4 py-2.5 bg-cave-status-error/10 text-cave-status-error border border-cave-status-error/20 rounded-lg text-sm font-medium hover:bg-cave-status-error/20 transition-colors disabled:opacity-50"
+                  >
+                    {deleteEventMutation.isPending ? 'Deleting...' : 'Delete Just This Event'}
+                  </button>
+                  <button
+                    onClick={() => deleteEventMutation.mutate({ eventId: deleteConfirm.id, groupId: deleteConfirm.recurrence_group_id })}
+                    disabled={deleteEventMutation.isPending}
+                    className="w-full px-4 py-2.5 bg-cave-status-error text-white rounded-lg text-sm font-medium hover:bg-cave-status-error/80 transition-colors disabled:opacity-50"
+                  >
+                    {deleteEventMutation.isPending ? 'Deleting...' : 'Delete All in Series'}
+                  </button>
+                  <button
+                    onClick={() => setDeleteConfirm(null)}
+                    disabled={deleteEventMutation.isPending}
+                    className="w-full px-4 py-2.5 text-cave-text-secondary hover:text-cave-text-primary hover:bg-cave-bg-elevated rounded-lg text-sm transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <p className="text-sm text-cave-text-secondary mb-6">
+                  Are you sure you want to delete this event? This action cannot be undone.
+                </p>
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setDeleteConfirm(null)}
+                    disabled={deleteEventMutation.isPending}
+                    className="flex-1 px-4 py-2.5 bg-cave-bg-elevated text-cave-text-secondary rounded-lg text-sm font-medium hover:text-cave-text-primary transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={() => deleteEventMutation.mutate({ eventId: deleteConfirm.id })}
+                    disabled={deleteEventMutation.isPending}
+                    className="flex-1 px-4 py-2.5 bg-cave-status-error text-white rounded-lg text-sm font-medium hover:bg-cave-status-error/80 transition-colors disabled:opacity-50"
+                  >
+                    {deleteEventMutation.isPending ? 'Deleting...' : 'Delete Event'}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
       )}
     </div>
   )

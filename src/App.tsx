@@ -25,6 +25,7 @@ import { OnboardingFormsPage } from './pages/OnboardingFormsPage'
 import { OnboardingFormBuilderPage } from './pages/OnboardingFormBuilderPage'
 import { OnboardingFormPage } from './pages/OnboardingFormPage'
 import { ShuraPage } from './pages/ShuraPage'
+import { ServiceRequestsPage } from './pages/ServiceRequestsPage'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -76,13 +77,19 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
       }
 
       // Check that the authenticated user has a staff profile
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('staff')
         .select('id')
         .eq('auth_user_id', session.user.id)
         .maybeSingle()
 
-      if (!data) {
+      if (error) {
+        // Network or DB error — don't sign out, just let them through
+        // (the API will reject them if truly unauthorized)
+        setIsAuthenticated(true)
+        setIsStaff(true)
+      } else if (!data) {
+        // Definitively no staff record — sign out
         await supabase.auth.signOut()
         queryClient.clear()
         setIsAuthenticated(false)
@@ -163,6 +170,7 @@ export default function App() {
             <Route  path="/staff/onboarding-forms/:id/edit"  element={<OnboardingFormBuilderPage />} />
             <Route path="/analytics" element={<AnalyticsPage />} />
             <Route path="/shuras" element={<ShuraPage />} />
+            <Route path="/service-requests" element={<ServiceRequestsPage />} />
             <Route path="/settings" element={<div className="p-6 text-cave-text-primary">Settings - Coming Soon</div>} />
           </Route>
 

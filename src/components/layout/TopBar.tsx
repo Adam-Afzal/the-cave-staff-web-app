@@ -6,6 +6,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useCurrentStaffProfile } from '../../hooks/useStaffProfile'
 import { supabase } from '../../lib/supabase'
 import { cn } from '../../lib/utils'
+import { StaffNotificationBell } from '../StaffNotificationBell'
 
 export function TopBar() {
   const navigate = useNavigate()
@@ -36,7 +37,8 @@ export function TopBar() {
     : profile?.email || 'Staff'
 
   return (
-    <div className="h-16 bg-cave-bg-secondary border-b border-cave-border px-6 flex items-center justify-end">
+    <div className="h-16 bg-cave-bg-secondary border-b border-cave-border px-6 flex items-center justify-end gap-2">
+      <StaffNotificationBell />
       {/* Profile Dropdown */}
       <div className="relative" ref={dropdownRef}>
         <button
