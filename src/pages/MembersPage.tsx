@@ -199,8 +199,8 @@ export function MembersPage() {
                           </td>
                           <td>
                             <span className={cn(
-                              member.status === 'ACTIVE' ? 'badge-success' : 
-                              member.status === 'INACTIVE' ? 'badge-warning' :
+                              member.status === 'ACTIVE' ? 'badge-success' :
+                              member.status === 'OFFBOARDED' ? 'badge-warning' :
                               member.status === 'CHURNED' ? 'badge-error' : 'badge-info'
                             )}>
                               {member.status}

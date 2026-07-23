@@ -97,6 +97,11 @@ export function EventModal({ event, onClose }: EventModalProps) {
         registration_deadline: event.registration_deadline ? formatDateTimeLocal(event.registration_deadline) : '',
         max_guests_per_member: event.max_guests_per_member,
         cover_image_url: event.cover_image_url,
+        // Recurrence is create-only (see the !isEditing check around the recurrence
+        // fields below) — existing events never carry these, so just keep defaults.
+        is_recurring: false,
+        recurrence_type: 'weekly',
+        recurrence_end_date: '',
       })
       if (event.cover_image_url) {
         setImagePreview(event.cover_image_url)
