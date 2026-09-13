@@ -7,7 +7,7 @@ import { supabase } from '../lib/supabase'
 // longer deployed. They need the service-role key, which can only live
 // server-side — supabase.functions.invoke() automatically attaches the
 // current session as the Authorization header.
-async function invokeStaffFunction<T>(name: string, body?: unknown): Promise<T> {
+async function invokeStaffFunction<T>(name: string, body?: Record<string, unknown>): Promise<T> {
   const { data, error } = await supabase.functions.invoke(name, { body })
 
   if (error) {
