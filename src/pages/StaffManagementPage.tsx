@@ -45,8 +45,6 @@ export function StaffManagementPage() {
   const [showToggleActiveModal, setShowToggleActiveModal] = useState<StaffProfile | null>(null)
   const [showDeleteModal, setShowDeleteModal] = useState<StaffProfile | null>(null)
 
-  const isAdmin = currentProfile?.role === 'ADMIN'
-
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
@@ -189,15 +187,13 @@ export function StaffManagementPage() {
                               </>
                             )}
                           </button>
-                          {isAdmin && (
-                            <button
-                              onClick={() => setShowDeleteModal(staff)}
-                              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm text-cave-status-error hover:bg-cave-status-error/10 transition-colors"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                              Delete
-                            </button>
-                          )}
+                          <button
+                            onClick={() => setShowDeleteModal(staff)}
+                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm text-cave-status-error hover:bg-cave-status-error/10 transition-colors"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                            Delete
+                          </button>
                         </>
                       )}
                     </div>

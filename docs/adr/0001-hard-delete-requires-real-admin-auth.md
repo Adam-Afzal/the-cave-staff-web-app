@@ -8,4 +8,6 @@ For Delete specifically, we decided the risk didn't match the app's existing "an
 
 Anyone extending this pattern to other actions should know: `role` values on `staff` rows are currently set by hand in the Supabase dashboard (nothing in the codebase writes them), so there's no self-service way for an admin to grant/revoke ADMIN today.
 
-_Superseded in mechanism, not intent, by [0002](./0002-staff-admin-moved-to-edge-functions.md): the check now lives in a Supabase Edge Function instead of the-cave-ai-api's FastAPI route, but the decision to require it stands._
+_Superseded in mechanism by [0002](./0002-staff-admin-moved-to-edge-functions.md): the check moved into a Supabase Edge Function instead of the-cave-ai-api's FastAPI route._
+
+_Superseded in intent by [0003](./0003-remove-admin-gating-for-now.md): the `role === 'ADMIN'` check itself was removed. This document is kept for the reasoning, in case the gate comes back._

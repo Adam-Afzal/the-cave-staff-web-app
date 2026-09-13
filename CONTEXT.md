@@ -16,7 +16,7 @@ A staff member whose portal access has been revoked (`is_active: false`) without
 _Avoid_: Removed, disabled, suspended
 
 **Deleted** (staff):
-A staff member whose record and login have been permanently destroyed — the `staff` row and the Supabase Auth user are both gone. Irreversible. Restricted to staff with the ADMIN role. Distinct from Deactivated: deletion is a last resort for accounts that should never come back (e.g. departed under circumstances warranting full removal), whereas deactivation is the default way to cut off someone who left.
+A staff member whose record and login have been permanently destroyed — the `staff` row and the Supabase Auth user are both gone. Irreversible. Distinct from Deactivated: deletion is a last resort for accounts that should never come back (e.g. departed under circumstances warranting full removal), whereas deactivation is the default way to cut off someone who left.
 _Avoid_: Removed, deactivated
 
 **Deleted Account**:
