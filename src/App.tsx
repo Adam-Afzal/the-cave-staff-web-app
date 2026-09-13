@@ -76,10 +76,10 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
         return
       }
 
-      // Check that the authenticated user has a staff profile
+      // Check that the authenticated user has an active staff profile
       const { data, error } = await supabase
         .from('staff')
-        .select('id')
+        .select('id, is_active')
         .eq('auth_user_id', session.user.id)
         .maybeSingle()
 
@@ -88,8 +88,8 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
         // (the API will reject them if truly unauthorized)
         setIsAuthenticated(true)
         setIsStaff(true)
-      } else if (!data) {
-        // Definitively no staff record — sign out
+      } else if (!data || data.is_active === false) {
+        // No staff record, or deactivated — sign out
         await supabase.auth.signOut()
         queryClient.clear()
         setIsAuthenticated(false)

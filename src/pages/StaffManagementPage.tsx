@@ -1,23 +1,30 @@
 // src/pages/StaffManagementPage.tsx
 import { useState } from 'react'
-import { 
-  Users, 
-  Plus, 
-  X, 
-  Eye, 
-  EyeOff, 
-  Loader2, 
+import {
+  Users,
+  Plus,
+  X,
+  Eye,
+  EyeOff,
+  Loader2,
   Key,
   Check,
-  User
+  User,
+  UserX,
+  UserCheck,
+  Trash2
 } from 'lucide-react'
-import { useAllStaffProfiles, useCreateStaffUser, useResetStaffPassword, useFetchTelegramAvatar, type StaffProfile } from '../hooks/useStaffProfile'
+import {
+  useAllStaffProfiles,
+  useCreateStaffUser,
+  useResetStaffPassword,
+  useCurrentStaffProfile,
+  useDeactivateStaffUser,
+  useReactivateStaffUser,
+  useDeleteStaffUser,
+  type StaffProfile,
+} from '../hooks/useStaffProfile'
 import { cn } from '../lib/utils'
-
-// Helper to check if a string is a telegram ID (all digits)
-function isTelegramId(value: string): boolean {
-  return /^\d+$/.test(value.trim())
-}
 
 // Helper to format telegram display from profile
 function formatTelegramDisplay(profile: StaffProfile): string | null {
@@ -32,8 +39,13 @@ function formatTelegramDisplay(profile: StaffProfile): string | null {
 
 export function StaffManagementPage() {
   const { data: staffProfiles, isLoading } = useAllStaffProfiles()
+  const { data: currentProfile } = useCurrentStaffProfile()
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showResetModal, setShowResetModal] = useState<StaffProfile | null>(null)
+  const [showToggleActiveModal, setShowToggleActiveModal] = useState<StaffProfile | null>(null)
+  const [showDeleteModal, setShowDeleteModal] = useState<StaffProfile | null>(null)
+
+  const isAdmin = currentProfile?.role === 'ADMIN'
 
   return (
     <div className="p-6 space-y-6">
@@ -125,16 +137,23 @@ export function StaffManagementPage() {
                     {staff.email}
                   </td>
                   <td className="px-4 py-3">
-                    {staff.onboarding_completed ? (
-                      <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-cave-status-success/10 text-cave-status-success">
-                        <Check className="w-3 h-3" />
-                        Active
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-cave-gold/10 text-cave-gold">
-                        Pending Setup
-                      </span>
-                    )}
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      {staff.onboarding_completed ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-cave-status-success/10 text-cave-status-success">
+                          <Check className="w-3 h-3" />
+                          Onboarded
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-cave-gold/10 text-cave-gold">
+                          Pending Setup
+                        </span>
+                      )}
+                      {staff.is_active === false && (
+                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-cave-status-error/10 text-cave-status-error">
+                          Deactivated
+                        </span>
+                      )}
+                    </div>
                   </td>
                   <td className="px-4 py-3 text-cave-text-secondary text-sm">
                     {new Date(staff.created_at).toLocaleDateString('en-GB', {
@@ -144,13 +163,44 @@ export function StaffManagementPage() {
                     })}
                   </td>
                   <td className="px-4 py-3 text-right">
-                    <button
-                      onClick={() => setShowResetModal(staff)}
-                      className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm text-cave-text-secondary hover:bg-cave-bg-elevated transition-colors"
-                    >
-                      <Key className="w-4 h-4" />
-                      Reset Password
-                    </button>
+                    <div className="flex items-center justify-end gap-1">
+                      <button
+                        onClick={() => setShowResetModal(staff)}
+                        className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm text-cave-text-secondary hover:bg-cave-bg-elevated transition-colors"
+                      >
+                        <Key className="w-4 h-4" />
+                        Reset Password
+                      </button>
+                      {staff.auth_user_id !== currentProfile?.auth_user_id && (
+                        <>
+                          <button
+                            onClick={() => setShowToggleActiveModal(staff)}
+                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm text-cave-text-secondary hover:bg-cave-bg-elevated transition-colors"
+                          >
+                            {staff.is_active === false ? (
+                              <>
+                                <UserCheck className="w-4 h-4" />
+                                Reactivate
+                              </>
+                            ) : (
+                              <>
+                                <UserX className="w-4 h-4" />
+                                Deactivate
+                              </>
+                            )}
+                          </button>
+                          {isAdmin && (
+                            <button
+                              onClick={() => setShowDeleteModal(staff)}
+                              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm text-cave-status-error hover:bg-cave-status-error/10 transition-colors"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                              Delete
+                            </button>
+                          )}
+                        </>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -166,9 +216,25 @@ export function StaffManagementPage() {
 
       {/* Reset Password Modal */}
       {showResetModal && (
-        <ResetPasswordModal 
-          staff={showResetModal} 
-          onClose={() => setShowResetModal(null)} 
+        <ResetPasswordModal
+          staff={showResetModal}
+          onClose={() => setShowResetModal(null)}
+        />
+      )}
+
+      {/* Deactivate / Reactivate Modal */}
+      {showToggleActiveModal && (
+        <ToggleActiveModal
+          staff={showToggleActiveModal}
+          onClose={() => setShowToggleActiveModal(null)}
+        />
+      )}
+
+      {/* Delete Permanently Modal */}
+      {showDeleteModal && (
+        <DeleteStaffModal
+          staff={showDeleteModal}
+          onClose={() => setShowDeleteModal(null)}
         />
       )}
     </div>
@@ -178,45 +244,12 @@ export function StaffManagementPage() {
 // Create Staff Modal
 function CreateStaffModal({ onClose }: { onClose: () => void }) {
   const createStaff = useCreateStaffUser()
-  const fetchTelegramAvatar = useFetchTelegramAvatar()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
-  const [telegramInput, setTelegramInput] = useState('')
-  const [telegramAvatarPreview, setTelegramAvatarPreview] = useState<string | null>(null)
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
-  const [fetchingAvatar, setFetchingAvatar] = useState(false)
-
-  // Determine if input is telegram ID or username
-  const isIdInput = isTelegramId(telegramInput)
-
-  const handleTelegramLookup = async () => {
-    if (!telegramInput.trim()) return
-    
-    setFetchingAvatar(true)
-    setError('')
-    
-    try {
-      // Pass either username or telegram_id based on input type
-      const params = isIdInput 
-        ? { telegram_id: parseInt(telegramInput.trim(), 10) }
-        : { username: telegramInput.trim() }
-      
-      const result = await fetchTelegramAvatar.mutateAsync(params)
-      setTelegramAvatarPreview(result.photo_data_url)
-      
-      // Auto-fill name if empty
-      if (!firstName && result.first_name) setFirstName(result.first_name)
-      if (!lastName && result.last_name) setLastName(result.last_name)
-    } catch (err: any) {
-      setError(err.message || 'Could not find Telegram user')
-      setTelegramAvatarPreview(null)
-    } finally {
-      setFetchingAvatar(false)
-    }
-  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -233,17 +266,7 @@ function CreateStaffModal({ onClose }: { onClose: () => void }) {
     }
 
     try {
-      // Determine if it's a telegram ID or username
-      const isId = isTelegramId(telegramInput)
-      
-      await createStaff.mutateAsync({ 
-        email, 
-        password, 
-        firstName, 
-        lastName,
-        telegramUsername: !isId && telegramInput.trim() ? telegramInput.trim() : undefined,
-        telegramId: isId ? parseInt(telegramInput.trim(), 10) : undefined
-      })
+      await createStaff.mutateAsync({ email, password, firstName, lastName })
       onClose()
     } catch (err: any) {
       setError(err.message || 'Failed to create staff user')
@@ -268,61 +291,6 @@ function CreateStaffModal({ onClose }: { onClose: () => void }) {
                 {error}
               </div>
             )}
-
-            {/* Telegram Username/ID with Avatar Preview */}
-            <div>
-              <label className="block text-sm font-medium text-cave-text-primary mb-1.5">
-                Telegram <span className="text-cave-text-secondary font-normal">(username or ID)</span>
-              </label>
-              <div className="flex gap-2">
-                <div className="relative flex-1">
-                  <input
-                    type="text"
-                    value={telegramInput}
-                    onChange={(e) => {
-                      // Remove @ if user types it
-                      setTelegramInput(e.target.value.replace('@', ''))
-                      setTelegramAvatarPreview(null)
-                    }}
-                    placeholder="username or 1234567890"
-                    className="w-full px-4 py-2.5 bg-cave-bg-elevated border border-cave-border rounded-lg text-cave-text-primary placeholder:text-cave-text-secondary focus:outline-none focus:border-cave-gold"
-                  />
-                  {telegramInput && (
-                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-cave-text-secondary">
-                      {isIdInput ? 'ID' : 'username'}
-                    </span>
-                  )}
-                </div>
-                <button
-                  type="button"
-                  onClick={handleTelegramLookup}
-                  disabled={!telegramInput.trim() || fetchingAvatar}
-                  className={cn(
-                    "px-4 py-2.5 rounded-lg font-medium transition-colors",
-                    "bg-cave-bg-elevated border border-cave-border text-cave-text-primary",
-                    "hover:border-cave-gold disabled:opacity-50 disabled:cursor-not-allowed"
-                  )}
-                >
-                  {fetchingAvatar ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Lookup'}
-                </button>
-              </div>
-              <p className="text-xs text-cave-text-secondary mt-1">
-                Enter @username or numeric Telegram ID
-              </p>
-              {telegramAvatarPreview && (
-                <div className="mt-3 flex items-center gap-3 p-3 rounded-lg bg-cave-bg-elevated">
-                  <img 
-                    src={telegramAvatarPreview} 
-                    alt="Telegram avatar" 
-                    className="w-12 h-12 rounded-full object-cover"
-                  />
-                  <div>
-                    <p className="text-sm text-cave-text-primary font-medium">Avatar found!</p>
-                    <p className="text-xs text-cave-text-secondary">Will be used as profile picture</p>
-                  </div>
-                </div>
-              )}
-            </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div>
@@ -535,5 +503,166 @@ function ResetPasswordModal({ staff, onClose }: { staff: StaffProfile; onClose: 
         </div>
       </div>
     </>
+  )
+}
+
+// Deactivate / Reactivate Confirmation Modal
+function ToggleActiveModal({ staff, onClose }: { staff: StaffProfile; onClose: () => void }) {
+  const deactivate = useDeactivateStaffUser()
+  const reactivate = useReactivateStaffUser()
+  const [error, setError] = useState('')
+
+  const isDeactivating = staff.is_active !== false
+  const mutation = isDeactivating ? deactivate : reactivate
+  const staffName = `${staff.first_name || ''} ${staff.last_name || ''}`.trim() || staff.email || 'this staff member'
+
+  const handleConfirm = async () => {
+    setError('')
+    try {
+      await mutation.mutateAsync(staff.auth_user_id)
+      onClose()
+    } catch (err: any) {
+      setError(err.message || `Failed to ${isDeactivating ? 'deactivate' : 'reactivate'} staff member`)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+      <div className="bg-cave-bg-secondary border border-cave-border rounded-xl w-full max-w-md p-6">
+        <div className="flex items-center gap-3 mb-4">
+          <div className={cn(
+            "w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0",
+            isDeactivating ? "bg-cave-status-error/10" : "bg-cave-status-success/10"
+          )}>
+            {isDeactivating ? (
+              <UserX className="w-5 h-5 text-cave-status-error" />
+            ) : (
+              <UserCheck className="w-5 h-5 text-cave-status-success" />
+            )}
+          </div>
+          <div>
+            <h3 className="text-base font-semibold text-cave-text-primary">
+              {isDeactivating ? 'Deactivate Staff Member' : 'Reactivate Staff Member'}
+            </h3>
+            <p className="text-sm text-cave-text-secondary truncate">{staffName}</p>
+          </div>
+        </div>
+
+        {error && (
+          <div className="p-3 rounded-lg bg-cave-status-error/10 text-cave-status-error text-sm mb-4">
+            {error}
+          </div>
+        )}
+
+        <p className="text-sm text-cave-text-secondary mb-6">
+          {isDeactivating
+            ? `${staffName} will immediately lose access to the staff portal. This can be undone at any time.`
+            : `${staffName} will regain access to the staff portal.`}
+        </p>
+
+        <div className="flex gap-3">
+          <button
+            onClick={onClose}
+            disabled={mutation.isPending}
+            className="flex-1 px-4 py-2.5 bg-cave-bg-elevated text-cave-text-secondary rounded-lg text-sm font-medium hover:text-cave-text-primary transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleConfirm}
+            disabled={mutation.isPending}
+            className={cn(
+              "flex-1 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-2",
+              isDeactivating
+                ? "bg-cave-status-error text-white hover:bg-cave-status-error/80"
+                : "bg-cave-gold text-cave-bg-primary hover:bg-cave-gold/90"
+            )}
+          >
+            {mutation.isPending && <Loader2 className="w-4 h-4 animate-spin" />}
+            {mutation.isPending
+              ? (isDeactivating ? 'Deactivating...' : 'Reactivating...')
+              : (isDeactivating ? 'Deactivate' : 'Reactivate')}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// Permanent Delete Confirmation Modal (type-to-confirm)
+function DeleteStaffModal({ staff, onClose }: { staff: StaffProfile; onClose: () => void }) {
+  const deleteStaff = useDeleteStaffUser()
+  const [confirmEmail, setConfirmEmail] = useState('')
+  const [error, setError] = useState('')
+
+  const staffName = `${staff.first_name || ''} ${staff.last_name || ''}`.trim() || staff.email || 'this staff member'
+  const canConfirm = staff.email !== null && confirmEmail.trim().toLowerCase() === staff.email.toLowerCase()
+
+  const handleConfirm = async () => {
+    if (!canConfirm) return
+    setError('')
+    try {
+      await deleteStaff.mutateAsync(staff.auth_user_id)
+      onClose()
+    } catch (err: any) {
+      setError(err.message || 'Failed to delete staff member')
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+      <div className="bg-cave-bg-secondary border border-cave-border rounded-xl w-full max-w-md p-6">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-10 h-10 rounded-full bg-cave-status-error/10 flex items-center justify-center flex-shrink-0">
+            <Trash2 className="w-5 h-5 text-cave-status-error" />
+          </div>
+          <div>
+            <h3 className="text-base font-semibold text-cave-text-primary">Delete Staff Member Permanently</h3>
+            <p className="text-sm text-cave-text-secondary truncate">{staffName}</p>
+          </div>
+        </div>
+
+        {error && (
+          <div className="p-3 rounded-lg bg-cave-status-error/10 text-cave-status-error text-sm mb-4">
+            {error}
+          </div>
+        )}
+
+        <p className="text-sm text-cave-text-secondary mb-4">
+          This permanently deletes their staff record and login. It cannot be undone — consider Deactivate instead
+          if you might need to restore access later. If this staff member has associated records (e.g. assigned
+          connection requests or created events), deletion will be blocked.
+        </p>
+
+        <label className="block text-sm font-medium text-cave-text-primary mb-1.5">
+          Type <span className="text-cave-status-error font-semibold">{staff.email}</span> to confirm
+        </label>
+        <input
+          type="text"
+          value={confirmEmail}
+          onChange={(e) => setConfirmEmail(e.target.value)}
+          placeholder={staff.email ?? ''}
+          className="w-full px-4 py-2.5 bg-cave-bg-elevated border border-cave-border rounded-lg text-cave-text-primary placeholder:text-cave-text-secondary focus:outline-none focus:border-cave-status-error mb-6"
+        />
+
+        <div className="flex gap-3">
+          <button
+            onClick={onClose}
+            disabled={deleteStaff.isPending}
+            className="flex-1 px-4 py-2.5 bg-cave-bg-elevated text-cave-text-secondary rounded-lg text-sm font-medium hover:text-cave-text-primary transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleConfirm}
+            disabled={!canConfirm || deleteStaff.isPending}
+            className="flex-1 px-4 py-2.5 bg-cave-status-error text-white rounded-lg text-sm font-medium hover:bg-cave-status-error/80 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+          >
+            {deleteStaff.isPending && <Loader2 className="w-4 h-4 animate-spin" />}
+            {deleteStaff.isPending ? 'Deleting...' : 'Delete Permanently'}
+          </button>
+        </div>
+      </div>
+    </div>
   )
 }

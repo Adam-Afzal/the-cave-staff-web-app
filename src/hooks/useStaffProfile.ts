@@ -2,6 +2,28 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 
+// Staff-admin actions (create/reset-password/deactivate/reactivate/delete) run
+// as Supabase Edge Functions rather than calling the-cave-ai-api, which is no
+// longer deployed. They need the service-role key, which can only live
+// server-side — supabase.functions.invoke() automatically attaches the
+// current session as the Authorization header.
+async function invokeStaffFunction<T>(name: string, body?: unknown): Promise<T> {
+  const { data, error } = await supabase.functions.invoke(name, { body })
+
+  if (error) {
+    let detail = error.message
+    try {
+      const errorBody = await (error as { context?: Response }).context?.json()
+      if (errorBody?.detail) detail = errorBody.detail
+    } catch {
+      // Response body wasn't JSON — fall back to error.message
+    }
+    throw new Error(detail)
+  }
+
+  return data as T
+}
+
 export interface StaffProfile {
   id: string
   auth_user_id: string
@@ -15,6 +37,7 @@ export interface StaffProfile {
   telegram_username: string | null
   telegram_id: number | null
   onboarding_completed: boolean
+  is_active: boolean
   created_at: string
   updated_at: string
 }
@@ -139,29 +162,13 @@ export function useCreateStaffUser() {
       password,
       firstName,
       lastName,
-      telegramUsername,
-      telegramId,
     }: {
       email: string
       password: string
       firstName: string
       lastName: string
-      telegramUsername?: string
-      telegramId?: number
     }) => {
-      // Create user via FastAPI backend (uses Supabase Admin API)
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/staff/create`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password, firstName, lastName, telegramUsername, telegramId }),
-      })
-
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.detail || 'Failed to create staff user')
-      }
-
-      return response.json()
+      return invokeStaffFunction('staff-create', { email, password, firstName, lastName })
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['staff-profiles'] })
@@ -172,37 +179,46 @@ export function useCreateStaffUser() {
 export function useResetStaffPassword() {
   return useMutation({
     mutationFn: async ({ authUserId, newPassword }: { authUserId: string; newPassword: string }) => {
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/staff/${authUserId}/reset-password`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ password: newPassword }),
-      })
-
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.detail || 'Failed to reset password')
-      }
-
-      return response.json()
+      return invokeStaffFunction('staff-reset-password', { userId: authUserId, password: newPassword })
     },
   })
 }
 
-export function useFetchTelegramAvatar() {
+export function useDeactivateStaffUser() {
+  const queryClient = useQueryClient()
+
   return useMutation({
-    mutationFn: async (params: { username?: string; telegram_id?: number }) => {
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/staff/telegram/avatar`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(params),
-      })
+    mutationFn: async (authUserId: string) => {
+      return invokeStaffFunction('staff-deactivate', { userId: authUserId })
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['staff-profiles'] })
+    },
+  })
+}
 
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.detail || 'Failed to fetch Telegram avatar')
-      }
+export function useReactivateStaffUser() {
+  const queryClient = useQueryClient()
 
-      return response.json()
+  return useMutation({
+    mutationFn: async (authUserId: string) => {
+      return invokeStaffFunction('staff-reactivate', { userId: authUserId })
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['staff-profiles'] })
+    },
+  })
+}
+
+export function useDeleteStaffUser() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (authUserId: string) => {
+      return invokeStaffFunction('staff-delete', { userId: authUserId })
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['staff-profiles'] })
     },
   })
 }
