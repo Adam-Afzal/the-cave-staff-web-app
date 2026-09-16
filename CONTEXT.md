@@ -21,3 +21,7 @@ _Avoid_: Removed, deactivated
 
 **Deleted Account**:
 The display fallback shown wherever a record references a staff member by ID (`assigned_staff_id`, `created_by_staff_id`, `added_by_staff_id`) and that staff member has since been Deleted. Distinguishes "this was attributed to someone who no longer exists" from "this was never assigned to anyone."
+
+**Hidden** (member):
+A Member excluded from the Directory and Network pages in `the-cave-client-web` (`members.hidden: true`), while remaining a full, unaffected Member otherwise — membership status, health score, and eligibility are untouched. Purely a visibility toggle, set and unset here in `EntitiesPage.tsx`/`MemberProfilePage.tsx`. Distinct from Blacklisted/Offboarded: those change what the member *is* (their standing), Hidden only changes whether other members can *see* them.
+_Avoid_: Blacklisted, Offboarded, Deactivated (all describe a change in standing, not visibility)

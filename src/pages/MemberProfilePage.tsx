@@ -30,6 +30,8 @@ import {
   AlertTriangle,
   UserMinus,
   Trash2,
+  Eye,
+  EyeOff,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { cn, getInitials } from '../lib/utils'
@@ -294,6 +296,20 @@ export function MemberProfilePage() {
       queryClient.invalidateQueries({ queryKey: ['member', memberId] })
       queryClient.invalidateQueries({ queryKey: ['members'] })
       setShowOffboardModal(false)
+    }
+  })
+
+  const toggleHidden = useMutation({
+    mutationFn: async (nextHidden: boolean) => {
+      const { error } = await supabase
+        .from('members')
+        .update({ hidden: nextHidden })
+        .eq('id', memberId)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['member', memberId] })
+      queryClient.invalidateQueries({ queryKey: ['members'] })
     }
   })
 
@@ -564,6 +580,20 @@ export function MemberProfilePage() {
                       {member.wealth_tier}
                     </span>
                   )}
+                  <button
+                    onClick={() => toggleHidden.mutate(!member.hidden)}
+                    disabled={toggleHidden.isPending}
+                    className="flex items-center gap-1.5 px-3 py-1 text-sm text-cave-text-secondary hover:bg-cave-bg-elevated rounded-lg transition-colors disabled:opacity-50"
+                  >
+                    {toggleHidden.isPending ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : member.hidden ? (
+                      <Eye className="w-4 h-4" />
+                    ) : (
+                      <EyeOff className="w-4 h-4" />
+                    )}
+                    {member.hidden ? 'Show in Directory' : 'Hide from Directory'}
+                  </button>
                   {!member.blacklisted && member.status !== 'OFFBOARDED' && (
                     <button
                       onClick={() => setShowOffboardModal(true)}

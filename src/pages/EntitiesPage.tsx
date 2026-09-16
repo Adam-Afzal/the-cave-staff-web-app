@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import {
-  Users, Search, Plus, Edit2, Trash2, X, Loader2, Briefcase, Mail, Phone, MoreHorizontal, UserMinus, AlertTriangle, ShieldBan, MapPin
+  Users, Search, Plus, Edit2, Trash2, X, Loader2, Briefcase, Mail, Phone, MoreHorizontal, UserMinus, AlertTriangle, ShieldBan, MapPin, EyeOff
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { cn, getInitials } from '../lib/utils'
@@ -23,6 +23,7 @@ interface Member {
   primary_residence: string | null; secondary_residence: string | null
   join_date: string | null; health_score: number | null; wealth_tier: string | null; created_at: string
   blacklisted: boolean
+  hidden: boolean
   profile_picture_url: string | null
   telegram_username: string | null
   member_telegram?: { telegram_id: string | null; avatar_url: string | null } | null
@@ -230,6 +231,7 @@ function MemberModal({ member, onClose, onSave }: { member: Member | null; onClo
   const [joinDate, setJoinDate] = useState(member?.join_date?.split('T')[0] || new Date().toISOString().split('T')[0])
   const [telegramUsername, setTelegramUsername] = useState(member?.telegram_username || '')
   const [professionalBackground, setProfessionalBackground] = useState(member?.professional_background || '')
+  const [hidden, setHidden] = useState(member?.hidden || false)
   const [showOffboardModal, setShowOffboardModal] = useState(false)
   const [showBlacklistModal, setShowBlacklistModal] = useState(false)
 
@@ -257,7 +259,7 @@ function MemberModal({ member, onClose, onSave }: { member: Member | null; onClo
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    onSave({ first_name: firstName || null, last_name: lastName || null, email: email || null, phone: phone || null, status, business_arena: businessArena || null, professional_background: professionalBackground || null, city: city || null, country: country || null, join_date: joinDate || null, telegram_username: telegramUsername || null })
+    onSave({ first_name: firstName || null, last_name: lastName || null, email: email || null, phone: phone || null, status, business_arena: businessArena || null, professional_background: professionalBackground || null, city: city || null, country: country || null, join_date: joinDate || null, telegram_username: telegramUsername || null, hidden })
   }
 
   const isEditing = !!member
@@ -292,6 +294,10 @@ function MemberModal({ member, onClose, onSave }: { member: Member | null; onClo
               <div><label className="block text-sm font-medium text-cave-text-secondary mb-1">Country</label><input type="text" value={country} onChange={(e) => setCountry(e.target.value)} className="w-full px-3 py-2 bg-cave-bg-elevated border border-cave-border rounded-lg text-cave-text-primary focus:outline-none focus:border-cave-gold" /></div>
             </div>
             <div><label className="block text-sm font-medium text-cave-text-secondary mb-1">Telegram Username</label><div className="relative"><span className="absolute left-3 top-1/2 -translate-y-1/2 text-cave-text-muted">@</span><input type="text" value={telegramUsername} onChange={(e) => setTelegramUsername(e.target.value.replace('@', ''))} placeholder="username" className="w-full pl-8 pr-3 py-2 bg-cave-bg-elevated border border-cave-border rounded-lg text-cave-text-primary focus:outline-none focus:border-cave-gold" /></div></div>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" checked={hidden} onChange={(e) => setHidden(e.target.checked)} className="w-4 h-4 rounded border-cave-border bg-cave-bg-elevated accent-cave-gold" />
+              <span className="text-sm font-medium text-cave-text-secondary">Hidden from Directory</span>
+            </label>
             <div className="flex justify-between items-center pt-4">
               <div className="flex items-center gap-2">
                 {canOffboard && (
@@ -511,7 +517,17 @@ export function EntitiesPage() {
                           })()}
                         </td>
                         <td className="px-4 py-3"><HealthScoreBadge score={member.health_score || 0} /></td>
-                        <td className="px-4 py-3"><span className={cn("px-2 py-1 rounded-full text-xs font-medium", member.blacklisted ? 'bg-red-500/20 text-red-400' : member.status === 'ACTIVE' ? 'bg-cave-status-success/20 text-cave-status-success' : member.status === 'ONBOARDING' ? 'bg-cave-status-info/20 text-cave-status-info' : member.status === 'AT_RISK' ? 'bg-cave-status-warning/20 text-cave-status-warning' : member.status === 'CHURNED' ? 'bg-cave-status-error/20 text-cave-status-error' : 'bg-cave-bg-elevated text-cave-text-secondary')}>{member.blacklisted ? 'Blacklisted' : member.status || 'Unknown'}</span></td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-1.5">
+                            <span className={cn("px-2 py-1 rounded-full text-xs font-medium", member.blacklisted ? 'bg-red-500/20 text-red-400' : member.status === 'ACTIVE' ? 'bg-cave-status-success/20 text-cave-status-success' : member.status === 'ONBOARDING' ? 'bg-cave-status-info/20 text-cave-status-info' : member.status === 'AT_RISK' ? 'bg-cave-status-warning/20 text-cave-status-warning' : member.status === 'CHURNED' ? 'bg-cave-status-error/20 text-cave-status-error' : 'bg-cave-bg-elevated text-cave-text-secondary')}>{member.blacklisted ? 'Blacklisted' : member.status || 'Unknown'}</span>
+                            {member.hidden && (
+                              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-cave-bg-elevated text-cave-text-muted" title="Hidden from Directory">
+                                <EyeOff className="w-3 h-3" />
+                                Hidden
+                              </span>
+                            )}
+                          </div>
+                        </td>
                         <td className="px-4 py-3"><button onClick={(e) => { e.stopPropagation(); setPreviewMember(previewMember?.id === member.id ? null : member) }} className="p-2 hover:bg-cave-bg-elevated rounded-lg transition-colors"><MoreHorizontal className="w-4 h-4 text-cave-text-muted" /></button></td>
                       </tr>
                     ))}
