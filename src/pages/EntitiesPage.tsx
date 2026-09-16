@@ -363,6 +363,7 @@ export function EntitiesPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [locationQuery, setLocationQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState('Active')
+  const [visibilityFilter, setVisibilityFilter] = useState<'all' | 'hidden' | 'visible'>('all')
   const [showThirdPartyModal, setShowThirdPartyModal] = useState(false)
   const [showMemberModal, setShowMemberModal] = useState(false)
   const [editingThirdParty, setEditingThirdParty] = useState<ThirdParty | null>(null)
@@ -393,7 +394,8 @@ export function EntitiesPage() {
       const matchesSearch = !searchQuery || searchQuery.length < 2 || member.first_name?.toLowerCase().includes(searchQuery.toLowerCase()) || member.last_name?.toLowerCase().includes(searchQuery.toLowerCase()) || member.email?.toLowerCase().includes(searchQuery.toLowerCase()) || member.member_id?.toLowerCase().includes(searchQuery.toLowerCase())
       const matchesFilter = statusFilter === 'All' ? !member.blacklisted : statusFilter === 'Blacklisted' ? member.blacklisted : !member.blacklisted && member.status?.toUpperCase() === statusFilter.toUpperCase().replace(/\s+/g, '_')
       const matchesLocation = !locationQ || locationQ.length < 2 || member.primary_residence?.toLowerCase().includes(locationQ) || member.secondary_residence?.toLowerCase().includes(locationQ)
-      return matchesSearch && matchesFilter && matchesLocation
+      const matchesVisibility = visibilityFilter === 'all' || (visibilityFilter === 'hidden' ? member.hidden : !member.hidden)
+      return matchesSearch && matchesFilter && matchesLocation && matchesVisibility
     })
     .map(member => {
       if (!locationQ || locationQ.length < 2) return { ...member, locationMatchType: null as null }
@@ -472,6 +474,13 @@ export function EntitiesPage() {
               <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-cave-text-muted" />
               <input type="text" placeholder="Search by location..." value={locationQuery} onChange={(e) => setLocationQuery(e.target.value)} className="w-52 pl-10 pr-4 py-2 bg-cave-bg-secondary border border-cave-border rounded-lg text-sm text-cave-text-primary focus:outline-none focus:border-cave-gold" />
             </div>
+          )}
+          {activeTab === 'members' && (
+            <select value={visibilityFilter} onChange={(e) => setVisibilityFilter(e.target.value as 'all' | 'hidden' | 'visible')} className="px-3 py-2 bg-cave-bg-secondary border border-cave-border rounded-lg text-sm text-cave-text-primary focus:outline-none focus:border-cave-gold">
+              <option value="all">All (Hidden + Visible)</option>
+              <option value="visible">Visible only</option>
+              <option value="hidden">Hidden only</option>
+            </select>
           )}
         </div>
       </div>
